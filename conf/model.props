@@ -1,0 +1,37 @@
+# random #
+random.seed = 1
+distribution.strategy = int_uniform, 0, 2
+distribution.considerTrust = double_uniform, 0, 1
+distribution.decisionAction = double_uniform, 0, 1
+
+# grid definition #
+grid.min.x = 0
+grid.min.y = 0
+grid.max.x = 11
+grid.max.y = 11 
+grid.buffer = 1
+
+# these must multiply to total number of processes #
+proc.per.x = 2
+proc.per.y = 2
+
+# payoff matrix #
+payoff.temptation = 5
+payoff.reward = 3
+payoff.punishment = 1
+payoff.sucker = 0
+
+# model attributes #
+model.rounds = 10
+model.tax = 0.1
+model.consider-trust = 0.25
+model.delta-trust = 0.05
+model.trust-threshold = 0.25
+# 0 = pTFT
+# 1 = TFT
+# 2 = Random
+# 3 = Randomly selected among the 3
+model.strategy-type = 3
+# 0 = von Neumann
+# 1 = Moore
+model.neighborhood = 0
