@@ -1,4 +1,3 @@
-// AGENT
 #ifndef  __LANDAGENT_H__
 #define  __LANDAGENT_H__
 
@@ -23,10 +22,19 @@ class LandAgent: public repast::Agent {
 private:
 	// Agent
 	repast::AgentId id;
-	std::vector<int> position;
-	int strategy; // 0 = Random; 1 = TFT; 2 = pTFT
+	int x;
+	int y;
 	std::vector<LandAgent*> neighbors;
 	int numNeighbors;
+
+	// Payoffs
+	int payoffT;
+	int payoffR;
+	int payoffP;
+	int payoffS;
+
+	// Strategy
+	int strategy;
 
 	// Trust information
 	bool considerTrust;
@@ -35,45 +43,45 @@ private:
 
 	// Status information
 	bool isIndependent;
+	bool isMember;
 	bool isLeader;
 
-	// Leader information
-	std::vector<int> leaderPosition;
+	// Coalition information
+	repast::AgentId leaderId;
 	double trustLeader;
 
-	// Coalition information
+	std::vector<repast::AgentId> coalitionMembers;
 	double coalitionPayoff;
-	std::vector<std::vector<int> > coalitionMembers;
 
 	// Agent information
-	int action; // 0 = defect; 1 = cooperate
+	int action;
 	double payoff;
-	int prevDefectors;
+	int numDefectors;
 
 	// Random
 	repast::NumberGenerator* gen;
 
 public:
-	LandAgent(repast::AgentId _id, int _strategy, bool _considerTrust,
+	LandAgent(repast::AgentId _id, int _payoffT, int _payoffR, int _payoffP,
+			int _payoffS, int _strategy, bool _considerTrust,
 			double _deltaTrust, double _trustThreshold);
 
-	LandAgent(repast::AgentId _id, int _x, int _y, int _strategy,
-			bool _considerTrust, double _deltaTrust, double _trustThreshold,
-			bool _isIndependent, bool _isLeader, int _leaderX, int _leaderY,
-			double _trustLeader, int _action, double _payoff,
-			int _prevDefectors);
+	LandAgent(repast::AgentId _id, int _x, int _y, bool _isIndependent,
+			bool _isMember, bool _isLeader, repast::AgentId _leaderId,
+			int _action, double _payoff, double _coalitionPayoff);
 
 	~LandAgent();
 
 	/**
-	 * AGENT'S SETTERS AND GETTERS
+	 * AGENT' SETTERS AND GETTERS
 	 */
 
 	repast::AgentId& getId();
 	const repast::AgentId& getId() const;
 
-	std::vector<int> getPosition();
-	void setPosition(std::vector<int> _position);
+	int getX();
+	int getY();
+	void setXY(int _x, int _y);
 
 	const std::vector<LandAgent*> getNeighbors() const;
 	void setNeighbors(std::vector<LandAgent*> _neighbours);
@@ -88,16 +96,19 @@ public:
 	void setDeltaTrust(double _deltaTrust);
 
 	double getTrustThreshold();
-	void setTrustThreshold(double _threshold);
+	void setTrustThreshold(double _trustThreshold);
 
 	bool getIsIndependent();
 	void setIsIndependent(bool _isIndependent);
 
+	bool getIsMember();
+	void setIsMember(bool _isMember);
+
 	bool getIsLeader();
 	void setIsLeader(bool _isLeader);
 
-	std::vector<int> getLeaderPosition();
-	void setLeaderPosition(std::vector<int> _leaderPosition);
+	repast::AgentId getLeaderId();
+	void setLeaderId(repast::AgentId _leaderId);
 
 	double getTrustLeader();
 	void setTrustLeader(double _trustLeader);
@@ -108,8 +119,11 @@ public:
 	double getPayoff();
 	void setPayoff(double _payoff);
 
-	int getPrevDefectors();
-	void setPrevDefectors(int _prevDefectors);
+	double getCoalitionPayoff();
+	void setCoalitionPayoff(double _coalitionPayoff);
+
+	int getNumDefectors();
+	void setNumDefectors(int _prevDefectors);
 
 	/**
 	 * ACTIONS PERFORMED BY THE AGENTS AT EACH SIMULATION CYCLE
@@ -128,13 +142,12 @@ public:
 	/**
 	 * Agent calculates its payoff based on its own action and its neighbors' actions
 	 */
-	void calculatePayoff(int _payoffT, int _payoffR, int _payoffP,
-			int _payoffS);
+	void calculatePayoff();
 
 	/**
 	 * Leader agents receive its coalition members' payoff
 	 */
-	void addCoalitionPayoff(std::vector<int> _memberPosition, float _payoff);
+	void addCoalitionPayoff(repast::AgentId leaderId, float _payoff);
 
 	/**
 	 * Calculates the coalition leader payoff and return the split for each
@@ -148,27 +161,25 @@ public:
 };
 
 struct LandAgentPackage {
-	friend class boost::serialization::access;
-	template<class Archive>
 
+	friend class boost::serialization::access;
+
+	template<class Archive>
 	void serialize(Archive & ar, const unsigned int version) {
 		ar & id;
 		ar & proc;
 		ar & type;
 		ar & x;
 		ar & y;
-		ar & strategy;
-		ar & considerTrust;
-		ar & deltaTrust;
-		ar & trustThreshold;
 		ar & isIndependent;
+		ar & isMember;
 		ar & isLeader;
-		ar & leaderX;
-		ar & leaderY;
-		ar & trustLeader;
+		ar & leaderId;
+		ar & leaderProc;
+		ar & leaderType;
 		ar & action;
 		ar & payoff;
-		ar & prevDefectors;
+		ar & coalitionPayoff;
 	}
 
 	int id;
@@ -176,22 +187,37 @@ struct LandAgentPackage {
 	int type;
 	int x;
 	int y;
-	int strategy;
-	bool considerTrust;
-	double deltaTrust;
-	double trustThreshold;
 	bool isIndependent;
+	bool isMember;
 	bool isLeader;
-	int leaderX;
-	int leaderY;
-	double trustLeader;
+	int leaderId;
+	int leaderProc;
+	int leaderType;
 	int action;
 	double payoff;
-	int prevDefectors;
+	double coalitionPayoff;
 
 	repast::AgentId getId() const {
 		return repast::AgentId(id, proc, type);
 	}
+
+	repast::AgentId getLeaderId() const {
+		return repast::AgentId(leaderId, leaderProc, leaderType);
+	}
+};
+
+struct LandAgentEdge {
+
+	friend class boost::serialization::access;
+
+	template<class Archive>
+	void serialize(Archive& ar, const unsigned int version) {
+		ar & sourceAgent;
+		ar & targetAgent;
+	}
+
+	// source and target agents
+	LandAgentPackage sourceAgent, targetAgent;
 };
 
 #endif // __LANDAGENT_H__

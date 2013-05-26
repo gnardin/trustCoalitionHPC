@@ -4,5 +4,5 @@ logger.repast.system = DEBUG, R, stdout
  
 appender.R = RollingFileAppender
 appender.R.MaxBackupIndex =  1
-appender.R.File = logs/landAgent.log
+appender.R.File = ../logs/landAgent.log
 appender.R.MaxFileSize=200

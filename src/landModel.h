@@ -1,4 +1,3 @@
-// MODEL
 #ifndef  __MODEL_H__
 #define  __MODEL_H__
 
@@ -11,11 +10,11 @@
 #include <repast_hpc/RepastProcess.h>
 #include <repast_hpc/Schedule.h>
 #include <repast_hpc/SharedContext.h>
+#include <repast_hpc/SharedNetwork.h>
 #include <repast_hpc/SharedSpace.h>
 #include <repast_hpc/Utilities.h>
 
 #include "landAgent.h"
-#include "providerUpdater.h"
 
 namespace mpi = boost::mpi;
 
@@ -52,9 +51,13 @@ const int MOORE = 1;
 // Agent Type
 const int AGENT_TYPE = 0;
 
+class ProviderReceiver;
+
 class LandModel {
 
 private:
+	friend class ProviderReceiver;
+
 	mpi::communicator* world;
 	int rank;
 
@@ -84,8 +87,8 @@ private:
 	// General
 	repast::SharedContext<LandAgent> agents;
 	repast::SharedGrids<LandAgent>::SharedWrappedGrid* grid;
+	repast::SharedNetwork<LandAgent, repast::RepastEdge<LandAgent> >* net;
 	repast::Properties props;
-	ProviderUpdater providerUpdater;
 
 	// Random
 	repast::NumberGenerator* genStrategy;
@@ -107,6 +110,30 @@ public:
 	void step();
 
 	void synchAgents();
+
+	/**
+	 * Grid methods
+	 */
+	LandAgent* createAgent(LandAgentPackage& _content);
+
+	void createAgents(std::vector<LandAgentPackage>& _contents,
+			std::vector<LandAgent*>& _out);
+
+	void provideContent(LandAgent* _agent, std::vector<LandAgentPackage>& _out);
+
+	void provideContent(const repast::AgentRequest& _request,
+			std::vector<LandAgentPackage>& _out);
+
+	void updateAgent(const LandAgentPackage& _content);
+
+	/**
+	 * Network methods
+	 */
+
+	void provideEdgeContent(const repast::RepastEdge<LandAgent>* edge,
+			std::vector<LandAgentEdge>& edgeContent);
+	repast::RepastEdge<LandAgent>* createEdge(
+			repast::Context<LandAgent>& context, LandAgentEdge& edge);
 };
 
 #endif // __MODEL_H__

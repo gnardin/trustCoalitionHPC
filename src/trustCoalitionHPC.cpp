@@ -1,9 +1,8 @@
-// MAIN
 #include <iostream>
 #include <time.h>
 
 #include "landAgent.h"
-#include "model.h"
+#include "landModel.h"
 
 #include <repast_hpc/RepastProcess.h>
 #include <repast_hpc/Schedule.h>
@@ -23,7 +22,8 @@ void runLandModel(const std::string propsFile, int argc, char* argv[],
 		mpi::communicator* world) {
 
 	if (world->rank() == 0) {
-		Log4CL::instance()->get_logger("root").log(INFO, "Starting...");
+		Log4CL::instance()->get_logger("root").log(INFO,
+				"Starting Model Execution...");
 	}
 
 	LandModel* landModel = new LandModel(propsFile, argc, argv, world);
@@ -35,10 +35,15 @@ void runLandModel(const std::string propsFile, int argc, char* argv[],
 	world->barrier();
 
 	runner.run();
+
+	if (world->rank() == 0) {
+		Log4CL::instance()->get_logger("root").log(INFO,
+				"Terminating Model Execution");
+	}
 }
 
 int main(int argc, char* argv[]) {
-	// First check: if there aren't enough arguments, warn the user and exit
+	// First check, if there are not enough arguments, warn the user and exit
 	if (argc < 3) {
 		usage(argv[0]);
 		return -1;
@@ -56,7 +61,7 @@ int main(int argc, char* argv[]) {
 	// Runs the model
 	runLandModel(props, argc, argv, &world);
 
-	// Waits all the processes to finish executing
+	// Wait for all the processes to finish the execution
 	world.barrier();
 
 	clock_t end = clock();

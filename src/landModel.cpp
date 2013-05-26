@@ -1,43 +1,14 @@
-// MODEL
-#include "model.h"
+#include "landModel.h"
 
 LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 		mpi::communicator* _world) :
-		props(_propsFile, _argc, _argv, _world), providerUpdater(agents) {
+		props(_propsFile, _argc, _argv, _world) {
 
 	repast::initializeRandom(props, _world);
 
 	repast::RepastProcess* rp = repast::RepastProcess::instance();
 	rank = rp->rank();
 	world = _world;
-
-	// Size of the grid
-	sizeX = repast::strToInt(props.getProperty(GRID_MAX_X))
-			- repast::strToInt(props.getProperty(GRID_MIN_X)) + 1;
-	sizeY = repast::strToInt(props.getProperty(GRID_MAX_Y))
-			- repast::strToInt(props.getProperty(GRID_MIN_Y)) + 1;
-
-	int procX = repast::strToInt(props.getProperty(PROC_X));
-	int procY = repast::strToInt(props.getProperty(PROC_Y));
-
-	std::vector<int> procDim;
-	procDim.push_back(procX);
-	procDim.push_back(procY);
-
-	int gridBuffer = repast::strToInt(props.getProperty(GRID_BUFFER));
-
-	// Create the Grid
-	grid = new repast::SharedGrids<LandAgent>::SharedWrappedGrid("grid ",
-			repast::GridDimensions(repast::Point<int>(sizeX, sizeY)), procDim,
-			gridBuffer, world);
-	agents.addProjection(grid);
-
-	// Size of the grid managed by each process
-	dimX = sizeX / procX;
-	dimY = sizeY / procY;
-
-	int originX = grid->dimensions().origin().getX();
-	int originY = grid->dimensions().origin().getY();
 
 	// Payoff information
 	payoffT = repast::strToInt(props.getProperty(PAYOFF_T));
@@ -60,6 +31,39 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 	genConsiderTrust = repast::Random::instance()->getGenerator(
 			"considerTrust");
 
+	// Grid size
+	sizeX = repast::strToInt(props.getProperty(GRID_MAX_X))
+			- repast::strToInt(props.getProperty(GRID_MIN_X)) + 1;
+	sizeY = repast::strToInt(props.getProperty(GRID_MAX_Y))
+			- repast::strToInt(props.getProperty(GRID_MIN_Y)) + 1;
+
+	int procX = repast::strToInt(props.getProperty(PROC_X));
+	int procY = repast::strToInt(props.getProperty(PROC_Y));
+
+	std::vector<int> procDim;
+	procDim.push_back(procX);
+	procDim.push_back(procY);
+
+	int gridBuffer = repast::strToInt(props.getProperty(GRID_BUFFER));
+
+	// Create Grid
+	grid = new repast::SharedGrids<LandAgent>::SharedWrappedGrid("grid ",
+			repast::GridDimensions(repast::Point<int>(sizeX, sizeY)), procDim,
+			gridBuffer, world);
+	agents.addProjection(grid);
+
+	// Create Network
+	net = new repast::SharedNetwork<LandAgent, repast::RepastEdge<LandAgent> >(
+			"network", true);
+	agents.addProjection(net);
+
+	// Grid size managed by each process
+	dimX = sizeX / procX;
+	dimY = sizeY / procY;
+
+	int originX = grid->dimensions().origin().getX();
+	int originY = grid->dimensions().origin().getY();
+
 	// Create the agents
 	int strategy = strategyType;
 	bool cTrust;
@@ -79,28 +83,24 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 			cTrust = false;
 		}
 
-		agent = new LandAgent(id, strategy, cTrust, deltaTrust, trustThreshold);
+		agent = new LandAgent(id, payoffT, payoffR, payoffP, payoffS, strategy,
+				cTrust, deltaTrust, trustThreshold);
 		agents.addAgent(agent);
 
 		// Move the agent to the position in the grid
 		grid->moveTo(agent,
 				repast::Point<int>(originX + (i / dimX), originY + (i % dimY)));
-		agent->setPosition(std::vector<int>(originX + (i / dimX), originY + (i % dimY)));
+		agent->setXY((originX + (i / dimX)), (originY + (i % dimY)));
 	}
 
-	//grid->initSynchBuffer(agents);
-	//grid->synchBuffer<LandAgentPackage>(agents, providerUpdater,
-	//		providerUpdater);
+	grid->initSynchBuffer(agents);
+	grid->synchBuffer<LandAgentPackage>(agents, *this, *this);
 
 	// Set agents neighbors
 	for (int i = 0; i < (dimX * dimY); i++) {
 		agent = grid->getObjectAt(
 				repast::Point<int>(originX + (i / dimX), originY + (i % dimY)));
 		agent->setNeighbors(neighborhood(agent, neighborhoodType));
-
-		// Print on screen
-		//std::cout << agent->getId() << " " << originX + (i / dimX) << " "
-		//		<< originY + (i % dimY) << std::endl;
 	}
 	std::cout << "CREATED ALL" << std::endl;
 
@@ -131,11 +131,9 @@ std::vector<LandAgent*> LandModel::neighborhood(LandAgent* agent,
 		int neighborhoodType) {
 	std::vector<LandAgent*> neighbors;
 	LandAgent* out;
-	int x = agent->getPosition()[0];
-	int y = agent->getPosition()[1];
+	int x = agent->getX();
+	int y = agent->getY();
 
-	std::cout << x << " " << y << std::endl;
-	/**
 	// if true, then the agent has a neighbor to that direction:
 	bool N = false;
 	bool S = false;
@@ -183,7 +181,7 @@ std::vector<LandAgent*> LandModel::neighborhood(LandAgent* agent,
 			neighbors.push_back(out);
 		}
 	}
-**/
+
 	return neighbors;
 }
 
@@ -247,53 +245,81 @@ void LandModel::step() {
 	 **/
 }
 
-/**
-void LandModel::applyTax(LandAgent* lead) {
-	int total = 0;
-	int coalSize;
-	LandAgent* ag;
-	std::vector<LandAgent*> coalition(0);
-	repast::AgentId leadId = lead->getId();
-
-	for (int i = 0; i < dimX; i++) {
-		for (int j = 0; j < dimY; j++) {
-			ag = grid->getObjectAt(repast::Point<int>(i, j));
-			if (ag->getLeaderId() == leadId && ag->getId() != lead->getId()) {
-				coalition.push_back(ag);
-				total += ag->getPayoff();
-			}
-		}
-	}
-	coalSize = coalition.size();
-	if (coalSize != 0) {
-		float calcTax = total * (tax/100.0);
-		lead->setPayoff(lead->getPayoff() + calcTax);
-		total = (total - calcTax)/(1.0 * coalSize);
-		for (std::vector<LandAgent*>::iterator it = coalition.begin(); it != coalition.end(); ++it) {
- 	 		*it->setPayoff(total);
-		}
-	}
-}
-
-void LandModel::amIStillLeader(LandAgent* lead) {
-
-	LandAgent* ag;
-	int X = lead->getX();
-	int Y = lead->getY();
-	for (int i = 0; i < dimX; i++) {
-		for (int j = 0; j < dimY; j++) {
-			ag = grid->getObjectAt(repast::Point<int>(i, j));
-			if (ag->getLeaderX() == X && ag->getLeaderY() == Y && ag->getId() != lead->getId()) {
-				return;
-			}
-		}
-	}
-	lead->setLeaderId(NULL);
-}
- **/
-
 void LandModel::synchAgents() {
-	repast::syncAgents<LandAgentPackage>(providerUpdater, providerUpdater);
-	grid->synchBuffer<LandAgentPackage>(agents, providerUpdater,
-			providerUpdater);
+	repast::syncAgents<LandAgentPackage>(*this, *this);
+	grid->synchBuffer<LandAgentPackage>(agents, *this, *this);
+}
+
+/**
+ * Grid methods
+ */
+
+LandAgent* LandModel::createAgent(LandAgentPackage& content) {
+	return new LandAgent(content.getId(), content.x, content.y,
+			content.isIndependent, content.isMember, content.isLeader,
+			content.getLeaderId(), content.action, content.payoff,
+			content.coalitionPayoff);
+}
+
+void LandModel::createAgents(std::vector<LandAgentPackage>& contents,
+		std::vector<LandAgent*>& out) {
+
+	std::vector<LandAgentPackage>::iterator agent;
+	for (agent = contents.begin(); agent != contents.end(); ++agent) {
+		out.push_back(
+				new LandAgent(agent->getId(), agent->x, agent->y,
+						agent->isIndependent, agent->isMember, agent->isLeader,
+						agent->getLeaderId(), agent->action, agent->payoff,
+						agent->coalitionPayoff));
+	}
+}
+
+void LandModel::provideContent(LandAgent* agent,
+		std::vector<LandAgentPackage>& out) {
+
+	LandAgentPackage package = { agent->getId().id(),
+			agent->getId().startingRank(), agent->getId().agentType(),
+			agent->getX(), agent->getY(), agent->getIsIndependent(),
+			agent->getIsMember(), agent->getIsLeader(),
+			agent->getLeaderId().id(), agent->getLeaderId().startingRank(),
+			agent->getLeaderId().agentType(), agent->getAction(),
+			agent->getPayoff(), agent->getCoalitionPayoff() };
+	out.push_back(package);
+}
+
+void LandModel::provideContent(const repast::AgentRequest& request,
+		std::vector<LandAgentPackage>& out) {
+
+	const std::vector<repast::AgentId>& ids = request.requestedAgents();
+	for (int i = 0, size = ids.size(); i < size; i++) {
+		repast::AgentId id = ids[i];
+
+		if (agents.contains(id)) {
+			LandAgent* agent = agents.getAgent(id);
+			LandAgentPackage content = { id.id(), id.startingRank(),
+					id.agentType(), agent->getX(), agent->getY(),
+					agent->getIsIndependent(), agent->getIsMember(),
+					agent->getIsLeader(), agent->getLeaderId().id(),
+					agent->getLeaderId().startingRank(),
+					agent->getLeaderId().agentType(), agent->getAction(),
+					agent->getPayoff(), agent->getCoalitionPayoff() };
+			out.push_back(content);
+		}
+	}
+}
+
+void LandModel::updateAgent(const LandAgentPackage& content) {
+	repast::AgentId id = content.getId();
+
+	if (agents.contains(id)) {
+		LandAgent* copy = agents.getAgent(id);
+		copy->setXY(content.x, content.y);
+		copy->setIsIndependent(content.isIndependent);
+		copy->setIsMember(content.isMember);
+		copy->setIsLeader(content.isLeader);
+		copy->setLeaderId(content.getLeaderId());
+		copy->setAction(content.action);
+		copy->setPayoff(content.payoff);
+		copy->setCoalitionPayoff(content.coalitionPayoff);
+	}
 }
