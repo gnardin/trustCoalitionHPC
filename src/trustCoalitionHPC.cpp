@@ -35,11 +35,6 @@ void runLandModel(const std::string propsFile, int argc, char* argv[],
 	world->barrier();
 
 	runner.run();
-
-	if (world->rank() == 0) {
-		Log4CL::instance()->get_logger("root").log(INFO,
-				"Terminating Model Execution");
-	}
 }
 
 int main(int argc, char* argv[]) {

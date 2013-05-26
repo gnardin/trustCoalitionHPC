@@ -3,12 +3,14 @@ random.seed = 1
 distribution.strategy = int_uniform, 0, 2
 distribution.considerTrust = double_uniform, 0, 1
 distribution.decisionAction = double_uniform, 0, 1
+distribution.action = int_uniform, 0, 1
+distribution.trustLeader = double_uniform, 0, 1
 
 # grid definition #
 grid.min.x = 0
 grid.min.y = 0
-grid.max.x = 11
-grid.max.y = 11 
+grid.max.x = 3
+grid.max.y = 3 
 grid.buffer = 1
 
 # these must multiply to total number of processes #

@@ -31,7 +31,10 @@ LandAgent::LandAgent(repast::AgentId _id, int _payoffT, int _payoffR,
 	payoff = 0;
 	numDefectors = 0;
 
-	gen = repast::Random::instance()->getGenerator("decisionAction");
+	genDecisionAction = repast::Random::instance()->getGenerator(
+			"decisionAction");
+	genAction = repast::Random::instance()->getGenerator("action");
+	genTrustLeader = repast::Random::instance()->getGenerator("trustLeader");
 }
 
 LandAgent::LandAgent(repast::AgentId _id, int _x, int _y, bool _isIndependent,
@@ -59,6 +62,7 @@ LandAgent::~LandAgent() {
 repast::AgentId& LandAgent::getId() {
 	return id;
 }
+
 const repast::AgentId& LandAgent::getId() const {
 	return id;
 }
@@ -66,9 +70,11 @@ const repast::AgentId& LandAgent::getId() const {
 int LandAgent::getX() {
 	return x;
 }
+
 int LandAgent::getY() {
 	return y;
 }
+
 void LandAgent::setXY(int _x, int _y) {
 	x = _x;
 	y = _y;
@@ -77,6 +83,7 @@ void LandAgent::setXY(int _x, int _y) {
 const std::vector<LandAgent*> LandAgent::getNeighbors() const {
 	return neighbors;
 }
+
 void LandAgent::setNeighbors(std::vector<LandAgent*> _neighbors) {
 	neighbors = _neighbors;
 	numNeighbors = neighbors.size();
@@ -85,6 +92,7 @@ void LandAgent::setNeighbors(std::vector<LandAgent*> _neighbors) {
 int LandAgent::getStrategy() {
 	return strategy;
 }
+
 void LandAgent::setStrategy(int _strategy) {
 	strategy = _strategy;
 }
@@ -140,8 +148,21 @@ void LandAgent::setIsLeader(bool _isLeader) {
 repast::AgentId LandAgent::getLeaderId() {
 	return leaderId;
 }
+
 void LandAgent::setLeaderId(repast::AgentId _leaderId) {
 	leaderId = _leaderId;
+}
+
+void LandAgent::cleanCoalitionMembers() {
+	coalitionMembers.clear();
+}
+
+std::vector<repast::AgentId> LandAgent::getCoalitionMembers() {
+	return coalitionMembers;
+}
+
+void LandAgent::addCoalitionMembers(repast::AgentId _coalitionMember) {
+	coalitionMembers.push_back(_coalitionMember);
 }
 
 double LandAgent::getTrustLeader() {
@@ -163,6 +184,7 @@ void LandAgent::setAction(int _action) {
 double LandAgent::getPayoff() {
 	return payoff;
 }
+
 void LandAgent::setPayoff(double _payoff) {
 	payoff = _payoff;
 }
@@ -170,6 +192,7 @@ void LandAgent::setPayoff(double _payoff) {
 double LandAgent::getCoalitionPayoff() {
 	return coalitionPayoff;
 }
+
 void LandAgent::setCoalitionPayoff(double _coalitionPayoff) {
 	coalitionPayoff = _coalitionPayoff;
 }
@@ -196,7 +219,7 @@ void LandAgent::beginCycle() {
 void LandAgent::decideAction() {
 	// pTFT
 	if (strategy == PTFT) {
-		if ((numDefectors / numNeighbors) > gen->next()) {
+		if ((numDefectors / numNeighbors) > genDecisionAction->next()) {
 			action = DEFECT;
 		} else {
 			action = COOPERATE;
@@ -210,121 +233,152 @@ void LandAgent::decideAction() {
 		}
 		// Random
 	} else if (strategy == RANDOM) {
-		action = (int) gen->next();
+		action = (int) genAction->next();
 	}
 }
 
 void LandAgent::calculatePayoff() {
-
 	int numCooperate = 0;
 	int numDefect = 0;
 	int numMember = 0;
 	int neighborAction = 0;
 	std::vector<LandAgent*>::iterator it;
 
-	if (!isLeader) {
-
-		// Coalition Member
-		if (isMember) {
-			for (it = neighbors.begin(); it != neighbors.end(); ++it) {
-				if ((*it)->getLeaderId() == leaderId) {
-					numMember++;
-				} else {
-					neighborAction = (*it)->getAction();
-					if (neighborAction == COOPERATE) {
-						numCooperate++;
-					} else if (neighborAction == DEFECT) {
-						numDefect++;
-					}
+	// Leader or Coalition Member
+	if ((isLeader) || (isMember)) {
+		for (it = neighbors.begin(); it != neighbors.end(); ++it) {
+			if ((*it)->getLeaderId() == leaderId) {
+				numMember++;
+			} else {
+				neighborAction = (*it)->getAction();
+				if (neighborAction == COOPERATE) {
+					numCooperate++;
+				} else if (neighborAction == DEFECT) {
+					numDefect++;
 				}
-			}
-			payoff = (numMember * payoffR) + (numCooperate * payoffT)
-					+ (numDefect * payoffP);
-		} else if (isIndependent) {
-			// Independent and Cooperated
-			if (action == COOPERATE) {
-				for (it = neighbors.begin(); it != neighbors.end(); ++it) {
-					neighborAction = (*it)->getAction();
-					if (neighborAction == COOPERATE) {
-						numCooperate++;
-					} else if (neighborAction == DEFECT) {
-						numDefect++;
-					}
-				}
-				payoff = (numCooperate * payoffR) + (numDefect * payoffS);
-			}
-			// Independent and Defected
-			else if (action == DEFECT) {
-				for (it = neighbors.begin(); it != neighbors.end(); ++it) {
-					neighborAction = (*it)->getAction();
-					if (neighborAction == COOPERATE) {
-						numCooperate++;
-					} else if (neighborAction == DEFECT) {
-						numDefect++;
-					}
-				}
-				payoff = (numCooperate * payoffT) + (numDefect * payoffP);
 			}
 		}
-
-		payoff = payoff / (float) numNeighbors;
-		numDefectors = numDefect;
+		payoff = (numMember * payoffR) + (numCooperate * payoffT)
+				+ (numDefect * payoffP);
+	} else if (isIndependent) {
+		// Independent and Cooperated
+		if (action == COOPERATE) {
+			for (it = neighbors.begin(); it != neighbors.end(); ++it) {
+				neighborAction = (*it)->getAction();
+				if (neighborAction == COOPERATE) {
+					numCooperate++;
+				} else if (neighborAction == DEFECT) {
+					numDefect++;
+				}
+			}
+			payoff = (numCooperate * payoffR) + (numDefect * payoffS);
+		}
+		// Independent and Defected
+		else if (action == DEFECT) {
+			for (it = neighbors.begin(); it != neighbors.end(); ++it) {
+				neighborAction = (*it)->getAction();
+				if (neighborAction == COOPERATE) {
+					numCooperate++;
+				} else if (neighborAction == DEFECT) {
+					numDefect++;
+				}
+			}
+			payoff = (numCooperate * payoffT) + (numDefect * payoffP);
+		}
 	}
+
+	payoff = payoff / (float) numNeighbors;
+	numDefectors = numDefect;
 }
 
-void LandAgent::addCoalitionPayoff(repast::AgentId _leaderId, float _payoff) {
+void LandAgent::addCoalitionPayoff(float _payoff) {
 	coalitionPayoff += _payoff;
-	coalitionMembers.push_back(_leaderId);
 }
 
 void LandAgent::calculateCoalitionPayoff(float tax) {
-	payoff = coalitionPayoff * ceil(tax);
-	coalitionPayoff -= payoff;
+	if (coalitionMembers.size() > 0) {
+		// Leader receives its payoff plus the coalition members' tax
+		payoff = payoff + (coalitionPayoff * tax);
+
+		// Members receive an even portion of the coalition's payoff
+		coalitionPayoff = (coalitionPayoff - payoff)
+				/ (double) coalitionMembers.size();
+	} else {
+		coalitionPayoff = 0;
+	}
 }
 
 void LandAgent::decideCoalition() {
-	/**
-	 if (x == leader[0] && y == leader[1]) { // Leaders cannot leave nor join coalition, neither they consider trust on a leader
-	 return;
-	 }
-	 bool worstPayoff = true;
-	 LandAgent* best = neighbors[0];
-	 int nSize = neighbors.size();
-	 for (it = neighbors.begin(); it != neighbors.end(); ++it) {
-	 if ((*it)->getPayoff() < payoff) {
-	 worstPayoff = false;
-	 }
-	 if ((*it)->getPayoff() > best->getPayoff()) {
-	 best = (*it);
-	 }
-	 }
-	 if (worstPayoff) {
-	 if (leader[0] == -1) {
-	 if (best->getLeaderX() == -1) {
-	 best->setLeaderXY(best->getX(), best->getY());
-	 best->setIsLeader(true);
-	 best->setIsIndependent(false);
-	 }
-	 leader[0] = best->getLeaderX();
-	 leader[1] = bets->getLeaderY();
-	 isIndependent = false;
-	 } else {
-	 if (considerTrust) {
-	 trustLeader += deltaTrust;
-	 if (trustThreshold > trustLeader) {
-	 leader[0] = -1;
-	 leader[1] = -1;
-	 }
-	 } else {
-	 leader[0] = -1;
-	 leader[1] = -1;
-	 }
-	 }
-	 } else if (leader[0] != -1) {
-	 trustLeader += deltaTrust;
-	 if (trustLeader > 100) {
-	 trustLeader = 100;
-	 }
-	 }
-	 */
+	bool worstPayoff = true;
+	LandAgent* best = neighbors[0];
+
+	for (std::vector<LandAgent*>::iterator it = neighbors.begin();
+			it != neighbors.end(); ++it) {
+		if ((*it)->getPayoff() < payoff) {
+			worstPayoff = false;
+		}
+		if ((*it)->getPayoff() > best->getPayoff()) {
+			best = (*it);
+		}
+	}
+
+	if (isIndependent) {
+		if (worstPayoff) {
+			if (best->getIsIndependent() || best->getIsLeader()) {
+				leaderId = best->getId();
+			} else if (best->getIsMember()) {
+				leaderId = best->getLeaderId();
+			}
+
+			isIndependent = false;
+			isMember = true;
+			isLeader = false;
+
+			trustLeader = genTrustLeader->next();
+		}
+	} else if (isMember) {
+		if (considerTrust) {
+			if (worstPayoff) {
+				trustLeader = std::min(0.0, (trustLeader - deltaTrust));
+
+				if (trustLeader < trustThreshold) {
+					isIndependent = true;
+					isMember = false;
+					isLeader = false;
+
+					action = (int) genAction->next();
+				}
+			} else {
+				trustLeader = std::max((trustLeader + deltaTrust), 1.0);
+			}
+		} else {
+			if (payoff < (best->payoff / 2.0)) {
+				isIndependent = true;
+				isMember = false;
+				isLeader = false;
+
+				action = (int) genAction->next();
+			}
+		}
+	}
+}
+
+void LandAgent::updateCoalitionStatus(
+		std::vector<repast::AgentId> _coalitionMembers) {
+	coalitionMembers.clear();
+
+	if ((_coalitionMembers.size() == 0) && (isLeader)) {
+		isIndependent = true;
+		isMember = false;
+		isLeader = false;
+
+		action = (int) genAction->next();
+	} else if ((_coalitionMembers.size() > 0) && (!isLeader)) {
+		coalitionMembers.assign(_coalitionMembers.begin(),
+				_coalitionMembers.end());
+
+		isIndependent = false;
+		isMember = false;
+		isLeader = true;
+	}
 }

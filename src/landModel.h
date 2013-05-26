@@ -116,6 +116,8 @@ public:
 	 */
 	LandAgent* createAgent(LandAgentPackage& _content);
 
+	LandAgent* createAgent(const LandAgentPackage& content);
+
 	void createAgents(std::vector<LandAgentPackage>& _contents,
 			std::vector<LandAgent*>& _out);
 
@@ -129,9 +131,9 @@ public:
 	/**
 	 * Network methods
 	 */
-
 	void provideEdgeContent(const repast::RepastEdge<LandAgent>* edge,
 			std::vector<LandAgentEdge>& edgeContent);
+
 	repast::RepastEdge<LandAgent>* createEdge(
 			repast::Context<LandAgent>& context, LandAgentEdge& edge);
 };

@@ -5,6 +5,7 @@
 #include <boost/serialization/base_object.hpp>
 #include <repast_hpc/AgentId.h>
 #include <repast_hpc/Random.h>
+#include <repast_hpc/SharedContext.h>
 
 // Action
 const int DEFECT = 0;
@@ -59,7 +60,9 @@ private:
 	int numDefectors;
 
 	// Random
-	repast::NumberGenerator* gen;
+	repast::NumberGenerator* genAction;
+	repast::NumberGenerator* genDecisionAction;
+	repast::NumberGenerator* genTrustLeader;
 
 public:
 	LandAgent(repast::AgentId _id, int _payoffT, int _payoffR, int _payoffP,
@@ -110,6 +113,10 @@ public:
 	repast::AgentId getLeaderId();
 	void setLeaderId(repast::AgentId _leaderId);
 
+	void cleanCoalitionMembers();
+	std::vector<repast::AgentId> getCoalitionMembers();
+	void addCoalitionMembers(repast::AgentId _coalitionMember);
+
 	double getTrustLeader();
 	void setTrustLeader(double _trustLeader);
 
@@ -145,9 +152,9 @@ public:
 	void calculatePayoff();
 
 	/**
-	 * Leader agents receive its coalition members' payoff
+	 * Leader agents update its coalition payoff
 	 */
-	void addCoalitionPayoff(repast::AgentId leaderId, float _payoff);
+	void addCoalitionPayoff(float _payoff);
 
 	/**
 	 * Calculates the coalition leader payoff and return the split for each
@@ -158,6 +165,8 @@ public:
 	 * Agent decides to join/leave a coalition or stay as it is
 	 */
 	void decideCoalition();
+
+	void updateCoalitionStatus(std::vector<repast::AgentId> _coalitionMembers);
 };
 
 struct LandAgentPackage {
@@ -212,12 +221,12 @@ struct LandAgentEdge {
 
 	template<class Archive>
 	void serialize(Archive& ar, const unsigned int version) {
-		ar & sourceAgent;
-		ar & targetAgent;
+		ar & sourceContent;
+		ar & targetContent;
 	}
 
 	// source and target agents
-	LandAgentPackage sourceAgent, targetAgent;
+	LandAgentPackage sourceContent, targetContent;
 };
 
 #endif // __LANDAGENT_H__
