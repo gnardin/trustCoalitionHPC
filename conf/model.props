@@ -9,13 +9,13 @@ distribution.trustLeader = double_uniform, 0, 1
 # grid definition #
 grid.min.x = 0
 grid.min.y = 0
-grid.max.x = 3
-grid.max.y = 3 
+grid.max.x = 23
+grid.max.y = 23
 grid.buffer = 1
 
 # these must multiply to total number of processes #
-proc.per.x = 2
-proc.per.y = 2
+proc.per.x = 4
+proc.per.y = 4
 
 # payoff matrix #
 payoff.temptation = 5
@@ -24,7 +24,7 @@ payoff.punishment = 1
 payoff.sucker = 0
 
 # model attributes #
-model.rounds = 10
+model.rounds = 1000
 model.tax = 0.1
 model.consider-trust = 0.25
 model.delta-trust = 0.05
@@ -37,3 +37,8 @@ model.strategy-type = 3
 # 0 = von Neumann
 # 1 = Moore
 model.neighborhood = 0
+
+# output info #
+output.file=/data/workspace/hpc/trustCoalitionHPC/output/data.csv
+output.separator=;
+output.flush=50

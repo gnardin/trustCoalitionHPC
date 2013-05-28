@@ -50,8 +50,7 @@ private:
 	// Coalition information
 	repast::AgentId leaderId;
 	double trustLeader;
-
-	std::vector<repast::AgentId> coalitionMembers;
+	int numAgentsCoalition;
 	double coalitionPayoff;
 
 	// Agent information
@@ -113,10 +112,6 @@ public:
 	repast::AgentId getLeaderId();
 	void setLeaderId(repast::AgentId _leaderId);
 
-	void cleanCoalitionMembers();
-	std::vector<repast::AgentId> getCoalitionMembers();
-	void addCoalitionMembers(repast::AgentId _coalitionMember);
-
 	double getTrustLeader();
 	void setTrustLeader(double _trustLeader);
 
@@ -166,7 +161,7 @@ public:
 	 */
 	void decideCoalition();
 
-	void updateCoalitionStatus(std::vector<repast::AgentId> _coalitionMembers);
+	void updateCoalitionStatus(std::vector<LandAgent*> _successors);
 };
 
 struct LandAgentPackage {

@@ -153,18 +153,6 @@ void LandAgent::setLeaderId(repast::AgentId _leaderId) {
 	leaderId = _leaderId;
 }
 
-void LandAgent::cleanCoalitionMembers() {
-	coalitionMembers.clear();
-}
-
-std::vector<repast::AgentId> LandAgent::getCoalitionMembers() {
-	return coalitionMembers;
-}
-
-void LandAgent::addCoalitionMembers(repast::AgentId _coalitionMember) {
-	coalitionMembers.push_back(_coalitionMember);
-}
-
 double LandAgent::getTrustLeader() {
 	return trustLeader;
 }
@@ -213,6 +201,7 @@ void LandAgent::beginCycle() {
 	action = 0;
 	payoff = 0;
 
+	numAgentsCoalition = 0;
 	coalitionPayoff = 0;
 }
 
@@ -293,16 +282,17 @@ void LandAgent::calculatePayoff() {
 
 void LandAgent::addCoalitionPayoff(float _payoff) {
 	coalitionPayoff += _payoff;
+	numAgentsCoalition++;
 }
 
 void LandAgent::calculateCoalitionPayoff(float tax) {
-	if (coalitionMembers.size() > 0) {
+	if (numAgentsCoalition > 0) {
 		// Leader receives its payoff plus the coalition members' tax
 		payoff = payoff + (coalitionPayoff * tax);
 
 		// Members receive an even portion of the coalition's payoff
 		coalitionPayoff = (coalitionPayoff - payoff)
-				/ (double) coalitionMembers.size();
+				/ (double) numAgentsCoalition;
 	} else {
 		coalitionPayoff = 0;
 	}
@@ -363,20 +353,23 @@ void LandAgent::decideCoalition() {
 	}
 }
 
-void LandAgent::updateCoalitionStatus(
-		std::vector<repast::AgentId> _coalitionMembers) {
-	coalitionMembers.clear();
+void LandAgent::updateCoalitionStatus(std::vector<LandAgent*> _successors) {
+	numAgentsCoalition = 0;
+	for (std::vector<LandAgent*>::iterator it = _successors.begin();
+			it != _successors.end(); ++it) {
 
-	if ((_coalitionMembers.size() == 0) && (isLeader)) {
+		if ((id == (*it)->getLeaderId()) && ((*it)->getIsMember())) {
+			numAgentsCoalition++;
+		}
+	}
+
+	if ((numAgentsCoalition == 0) && (isLeader)) {
 		isIndependent = true;
 		isMember = false;
 		isLeader = false;
 
 		action = (int) genAction->next();
-	} else if ((_coalitionMembers.size() > 0) && (!isLeader)) {
-		coalitionMembers.assign(_coalitionMembers.begin(),
-				_coalitionMembers.end());
-
+	} else if ((numAgentsCoalition > 0) && (!isLeader)) {
 		isIndependent = false;
 		isMember = false;
 		isLeader = true;

@@ -125,15 +125,14 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 	for (repast::SharedContext<LandAgent>::const_local_iterator local =
 			agents.localBegin(); local != agents.localEnd(); local++) {
 
-		for (repast::SharedContext<LandAgent>::const_state_aware_iterator remote =
-				agents.begin(repast::SharedContext<LandAgent>::NON_LOCAL);
-				remote
-						!= agents.end(
-								repast::SharedContext<LandAgent>::NON_LOCAL);
-				remote++) {
-			source = local->get();
-			target = remote->get();
-			net->addEdge(source, target);
+		source = local->get();
+		for (repast::SharedContext<LandAgent>::const_iterator it =
+				agents.begin(); it != agents.end(); ++it) {
+
+			target = it->get();
+			if (source->getId() != target->getId()) {
+				net->addEdge(source, target);
+			}
 		}
 	}
 
@@ -145,10 +144,71 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 LandModel::~LandModel() {
 }
 
-void LandModel::init() {
+void LandModel::initDataCollection() {
+	std::string outputFile = props.getProperty(OUTPUT_FILE);
+	std::string outputSeparator = props.getProperty(OUTPUT_SEPARATOR);
+
+	repast::ScheduleRunner& runner =
+			repast::RepastProcess::instance()->getScheduleRunner();
+
+	repast::SVDataSetBuilder builder(outputFile, outputSeparator,
+			runner.schedule());
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_NUMCOALITIONS,
+					new NumCoalitions(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_CREATEDCOALITIONS,
+					new CreatedCoalitions(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_DESTROYEDCOALITIONS,
+					new DestroyedCoalitions(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_NUMINCHANGES,
+					new NumInChanges(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_NUMOUTCHANGES,
+					new NumOutChanges(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_NUMAGENTSCOALITIONS,
+					new NumAgentsCoalitions(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_NUMAGENTSINDEPENDENT,
+					new NumAgentsIndependent(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_NUMINDEPENDENTPTFT,
+					new NumIndependentpTFT(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_NUMINDEPENDENTTFT,
+					new NumIndependentTFT(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_NUMINDEPENDENTRANDOM,
+					new NumIndependentRandom(this), std::plus<int>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_COALITIONPAYOFF,
+					new CoalitionPayoff(this), std::plus<double>()));
+
+	builder.addDataSource(
+			repast::createSVDataSource(FIELD_INDEPENDENTPAYOFF,
+					new IndependentPayoff(this), std::plus<double>()));
+
+	dataset = builder.createDataSet();
 }
 
-void LandModel::initSchedule(repast::ScheduleRunner& runner) {
+void LandModel::initSchedule() {
+	repast::ScheduleRunner& runner =
+			repast::RepastProcess::instance()->getScheduleRunner();
+
 	runner.scheduleStop(rounds);
 
 	runner.scheduleEvent(1, 1,
@@ -156,10 +216,24 @@ void LandModel::initSchedule(repast::ScheduleRunner& runner) {
 					new repast::MethodFunctor<LandModel>(this,
 							&LandModel::step)));
 
-	runner.scheduleEvent(1.05, 1,
+	runner.scheduleEvent(1.1, 1,
 			repast::Schedule::FunctorPtr(
 					new repast::MethodFunctor<LandModel>(this,
-							&LandModel::synchAgents)));
+							&LandModel::updateOutput)));
+
+	runner.scheduleEvent(1.2, 1,
+			repast::Schedule::FunctorPtr(
+					new repast::MethodFunctor<repast::DataSet>(dataset,
+							&repast::DataSet::record)));
+
+	repast::Schedule::FunctorPtr dataWrite = repast::Schedule::FunctorPtr(
+			new repast::MethodFunctor<repast::DataSet>(dataset,
+					&repast::DataSet::write));
+
+	int flush = repast::strToInt(props.getProperty(OUTPUT_FLUSH));
+	runner.scheduleEvent(1.3, flush, dataWrite);
+
+	runner.scheduleEndEvent(dataWrite);
 }
 
 std::vector<LandAgent*> LandModel::neighborhood(LandAgent* agent,
@@ -221,14 +295,12 @@ std::vector<LandAgent*> LandModel::neighborhood(LandAgent* agent,
 }
 
 void LandModel::step() {
-	repast::AgentId id;
 	repast::SharedContext<LandAgent>::const_local_iterator it;
 	LandAgent* agent;
 	LandAgent* leader;
-	std::vector<int> position;
 
 	// Decide an action
-	for (it = agents.localBegin(); it != agents.localEnd(); it++) {
+	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
 		(*it)->decideAction();
 	}
 
@@ -237,7 +309,7 @@ void LandModel::step() {
 	world->barrier();
 
 	// Calculate Payoff
-	for (it = agents.localBegin(); it != agents.localEnd(); it++) {
+	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
 		(*it)->calculatePayoff();
 	}
 
@@ -246,20 +318,22 @@ void LandModel::step() {
 	world->barrier();
 
 	// Leaders collect their members' Payoff
-	std::vector<repast::AgentId>::iterator members;
-	for (it = agents.localBegin(); it != agents.localEnd(); it++) {
+	repast::SharedContext<LandAgent>::const_iterator member;
+	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
 		leader = it->get();
 		if (leader->getIsLeader()) {
-			for (members = leader->getCoalitionMembers().begin();
-					members != leader->getCoalitionMembers().end(); members++) {
-				agent = agents.getAgent(*members);
-				leader->addCoalitionPayoff(agent->getPayoff());
+			for (member = agents.begin(); member != agents.end(); ++member) {
+
+				if ((leader->getId() == (*member)->getLeaderId())
+						&& ((*member)->getIsMember())) {
+					leader->addCoalitionPayoff((*member)->getPayoff());
+				}
 			}
 		}
 	}
 
 	// Leaders calculate theirs and their members payoff
-	for (it = agents.localBegin(); it != agents.localEnd(); it++) {
+	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
 		agent = it->get();
 		if (agent->getIsLeader()) {
 			agent->calculateCoalitionPayoff(tax);
@@ -271,7 +345,7 @@ void LandModel::step() {
 	world->barrier();
 
 	// Members collect their payoff
-	for (it = agents.localBegin(); it != agents.localEnd(); it++) {
+	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
 		agent = it->get();
 		if (agent->getIsMember()) {
 			leader = agents.getAgent(agent->getLeaderId());
@@ -284,7 +358,7 @@ void LandModel::step() {
 	world->barrier();
 
 	// Independents and Members decide about the coalition
-	for (it = agents.localBegin(); it != agents.localEnd(); it++) {
+	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
 		agent = it->get();
 		if ((agent->getIsMember()) || (agent->getIsIndependent())) {
 			agent->decideCoalition();
@@ -296,27 +370,117 @@ void LandModel::step() {
 	world->barrier();
 
 	// Update coalition status
-	std::vector<repast::AgentId> coalitionMembers;
+	std::vector<LandAgent*> nodes;
+	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
+		agent = it->get();
+
+		nodes.clear();
+		net->successors(agent, nodes);
+
+		agent->updateCoalitionStatus(nodes);
+	}
+
+	// Update buffer agents' payoff
+	synchAgents();
+}
+
+void LandModel::updateOutput() {
+	repast::SharedContext<LandAgent>::const_local_iterator it;
+	LandAgent* agent;
+
+	numCoalitions = 0;
+	createdCoalitions = 0;
+	destroyedCoalitions = 0;
+	numInChanges = 0;
+	numOutChanges = 0;
+	numAgentsCoalitions = 0;
+	numAgentsIndependent = 0;
+	numIndependentpTFT = 0;
+	numIndependentTFT = 0;
+	numIndependentRandom = 0;
+	coalitionPayoff = 0;
+	independentPayoff = 0;
 	for (it = agents.localBegin(); it != agents.localEnd(); it++) {
 		agent = it->get();
 
-		for (repast::SharedContext<LandAgent>::const_iterator it =
-				agents.begin(); it != agents.end(); it++) {
-			if (agent->getId() != (*it)->getId()) {
-				if ((agent->getId() == (*it)->getLeaderId())
-						&& ((*it)->getIsMember())) {
-					coalitionMembers.push_back(agent->getId());
-				}
-			}
-		}
+		if (agent->getIsLeader()) {
+			numCoalitions++;
+			numAgentsCoalitions++;
+			coalitionPayoff += agent->getPayoff();
+		} else if (agent->getIsMember()) {
+			numAgentsCoalitions++;
+			coalitionPayoff += agent->getPayoff();
+		} else if (agent->getIsIndependent()) {
+			numAgentsIndependent++;
 
-		agent->updateCoalitionStatus(coalitionMembers);
+			int strategy = agent->getStrategy();
+			if (strategy == PTFT) {
+				numIndependentpTFT++;
+			} else if (strategy == TFT) {
+				numIndependentTFT++;
+			} else if (strategy == RANDOM) {
+				numIndependentRandom++;
+			}
+
+			independentPayoff += agent->getPayoff();
+		}
 	}
 }
 
 void LandModel::synchAgents() {
 	repast::syncAgents<LandAgentPackage>(*this, *this);
 	grid->synchBuffer<LandAgentPackage>(agents, *this, *this);
+}
+
+/**
+ * Output methods
+ */
+int LandModel::getNumCoalitions() {
+	return numCoalitions;
+}
+
+int LandModel::getCreatedCoalitions() {
+	return createdCoalitions;
+}
+
+int LandModel::getDestroyedCoalitions() {
+	return destroyedCoalitions;
+}
+
+int LandModel::getNumInChanges() {
+	return numInChanges;
+}
+
+int LandModel::getNumOutChanges() {
+	return numOutChanges;
+}
+
+int LandModel::getNumAgentsCoalitions() {
+	return numAgentsCoalitions;
+}
+
+int LandModel::getNumAgentsIndependent() {
+	return numAgentsIndependent;
+}
+
+int LandModel::getNumIndependentpTFT() {
+	return numIndependentpTFT;
+}
+
+int LandModel::getNumIndependentTFT() {
+	return numIndependentTFT;
+}
+
+int LandModel::getNumIndependentRandom() {
+	return numIndependentRandom;
+}
+
+double LandModel::getCoalitionPayoff() {
+	return coalitionPayoff;
+}
+
+double LandModel::getIndependentPayoff() {
+	return independentPayoff;
 }
 
 /**

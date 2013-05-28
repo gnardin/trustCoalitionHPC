@@ -27,13 +27,14 @@ void runLandModel(const std::string propsFile, int argc, char* argv[],
 	}
 
 	LandModel* landModel = new LandModel(propsFile, argc, argv, world);
-	landModel->init();
-	repast::ScheduleRunner& runner =
-			repast::RepastProcess::instance()->getScheduleRunner();
-	landModel->initSchedule(runner);
+
+	landModel->initDataCollection();
+	landModel->initSchedule();
 
 	world->barrier();
 
+	repast::ScheduleRunner& runner =
+			repast::RepastProcess::instance()->getScheduleRunner();
 	runner.run();
 }
 
