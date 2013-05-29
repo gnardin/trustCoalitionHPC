@@ -50,8 +50,8 @@ private:
 	// Coalition information
 	repast::AgentId leaderId;
 	double trustLeader;
-	int numAgentsCoalition;
 	double coalitionPayoff;
+	std::vector<LandAgent*> coalitionMembers;
 
 	// Agent information
 	int action;
@@ -124,8 +124,10 @@ public:
 	double getCoalitionPayoff();
 	void setCoalitionPayoff(double _coalitionPayoff);
 
+	void getCoalitionMembers(std::vector<LandAgent*>& _coalitionMembers);
+
 	int getNumDefectors();
-	void setNumDefectors(int _prevDefectors);
+	void setNumDefectors(int _numDefectors);
 
 	/**
 	 * ACTIONS PERFORMED BY THE AGENTS AT EACH SIMULATION CYCLE

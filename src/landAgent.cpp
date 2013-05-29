@@ -185,6 +185,11 @@ void LandAgent::setCoalitionPayoff(double _coalitionPayoff) {
 	coalitionPayoff = _coalitionPayoff;
 }
 
+void LandAgent::getCoalitionMembers(
+		std::vector<LandAgent*>& _coalitionMembers) {
+	_coalitionMembers = coalitionMembers;
+}
+
 int LandAgent::getNumDefectors() {
 	return numDefectors;
 }
@@ -201,7 +206,6 @@ void LandAgent::beginCycle() {
 	action = 0;
 	payoff = 0;
 
-	numAgentsCoalition = 0;
 	coalitionPayoff = 0;
 }
 
@@ -282,17 +286,16 @@ void LandAgent::calculatePayoff() {
 
 void LandAgent::addCoalitionPayoff(float _payoff) {
 	coalitionPayoff += _payoff;
-	numAgentsCoalition++;
 }
 
 void LandAgent::calculateCoalitionPayoff(float tax) {
-	if (numAgentsCoalition > 0) {
+	if (coalitionMembers.size() > 0) {
 		// Leader receives its payoff plus the coalition members' tax
 		payoff = payoff + (coalitionPayoff * tax);
 
 		// Members receive an even portion of the coalition's payoff
 		coalitionPayoff = (coalitionPayoff - payoff)
-				/ (double) numAgentsCoalition;
+				/ (double) coalitionMembers.size();
 	} else {
 		coalitionPayoff = 0;
 	}
@@ -354,22 +357,23 @@ void LandAgent::decideCoalition() {
 }
 
 void LandAgent::updateCoalitionStatus(std::vector<LandAgent*> _successors) {
-	numAgentsCoalition = 0;
+	coalitionMembers.clear();
+
 	for (std::vector<LandAgent*>::iterator it = _successors.begin();
 			it != _successors.end(); ++it) {
 
 		if ((id == (*it)->getLeaderId()) && ((*it)->getIsMember())) {
-			numAgentsCoalition++;
+			coalitionMembers.push_back(*it);
 		}
 	}
 
-	if ((numAgentsCoalition == 0) && (isLeader)) {
+	if ((coalitionMembers.size() == 0) && (isLeader)) {
 		isIndependent = true;
 		isMember = false;
 		isLeader = false;
 
 		action = (int) genAction->next();
-	} else if ((numAgentsCoalition > 0) && (!isLeader)) {
+	} else if ((coalitionMembers.size() > 0) && (!isLeader)) {
 		isIndependent = false;
 		isMember = false;
 		isLeader = true;

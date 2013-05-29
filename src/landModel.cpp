@@ -318,12 +318,13 @@ void LandModel::step() {
 	world->barrier();
 
 	// Leaders collect their members' Payoff
-	repast::SharedContext<LandAgent>::const_iterator member;
+	std::vector<LandAgent*> members;
+	std::vector<LandAgent*>::iterator member;
 	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
 		leader = it->get();
 		if (leader->getIsLeader()) {
-			for (member = agents.begin(); member != agents.end(); ++member) {
-
+			leader->getCoalitionMembers(members);
+			for (member = members.begin(); member != members.end(); ++member) {
 				if ((leader->getId() == (*member)->getLeaderId())
 						&& ((*member)->getIsMember())) {
 					leader->addCoalitionPayoff((*member)->getPayoff());
@@ -331,7 +332,6 @@ void LandModel::step() {
 			}
 		}
 	}
-
 	// Leaders calculate theirs and their members payoff
 	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
 		agent = it->get();

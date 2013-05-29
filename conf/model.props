@@ -9,13 +9,13 @@ distribution.trustLeader = double_uniform, 0, 1
 # grid definition #
 grid.min.x = 0
 grid.min.y = 0
-grid.max.x = 23
-grid.max.y = 23
+grid.max.x = 11
+grid.max.y = 11
 grid.buffer = 1
 
 # these must multiply to total number of processes #
-proc.per.x = 4
-proc.per.y = 4
+proc.per.x = 2
+proc.per.y = 2
 
 # payoff matrix #
 payoff.temptation = 5
