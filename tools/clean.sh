@@ -2,4 +2,4 @@
 
 rm ../logs/*.log
 rm ../logs/.l*
-rm ../output/*
+rm ../output/*.csv

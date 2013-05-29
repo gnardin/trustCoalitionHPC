@@ -26,6 +26,7 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 			props.getProperty(MODEL_TRUST_THRESHOLD));
 	strategyType = repast::strToInt(props.getProperty(MODEL_STRATEGY_TYPE));
 	neighborhoodType = repast::strToInt(props.getProperty(MODEL_NEIGHBORHOOD));
+	topologyType = repast::strToInt(props.getProperty(MODEL_TOPOLOGY));
 
 	genStrategy = repast::Random::instance()->getGenerator("strategy");
 	genConsiderTrust = repast::Random::instance()->getGenerator(
@@ -102,7 +103,7 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 	for (int i = 0; i < (dimX * dimY); i++) {
 		agent = grid->getObjectAt(
 				repast::Point<int>(originX + (i / dimX), originY + (i % dimY)));
-		agent->setNeighbors(neighborhood(agent, neighborhoodType));
+		agent->setNeighbors(neighborhood(agent));
 	}
 
 	// Request agents from other processes
@@ -236,57 +237,87 @@ void LandModel::initSchedule() {
 	runner.scheduleEndEvent(dataWrite);
 }
 
-std::vector<LandAgent*> LandModel::neighborhood(LandAgent* agent,
-		int neighborhoodType) {
+std::vector<LandAgent*> LandModel::neighborhood(LandAgent* _agent) {
 	std::vector<LandAgent*> neighbors;
 	LandAgent* out;
-	int x = agent->getX();
-	int y = agent->getY();
+	int x = _agent->getX();
+	int y = _agent->getY();
 
-	// if true, then the agent has a neighbor to that direction:
-	bool N = false;
-	bool S = false;
-	bool E = false;
-	bool W = false;
-	if ((x + 1) % sizeX) {
-		out = grid->getObjectAt(repast::Point<int>(x + 1, y));
-		neighbors.push_back(out);
-		E = true;
-	}
-
-	if (x) {
-		out = grid->getObjectAt(repast::Point<int>(x - 1, y));
-		neighbors.push_back(out);
-		W = true;
-	}
-
-	if ((y + 1) % sizeY) {
-		out = grid->getObjectAt(repast::Point<int>(x, y + 1));
-		neighbors.push_back(out);
-		S = true;
-	}
-
-	if (y) {
-		out = grid->getObjectAt(repast::Point<int>(x, y - 1));
-		neighbors.push_back(out);
-		N = true;
-	}
-
-	if (neighborhoodType == MOORE) {
-		if (E && S) {
-			out = grid->getObjectAt(repast::Point<int>(x + 1, y + 1));
+	if (topologyType == GRID) {
+		// if true, then the agent has a neighbor to that direction:
+		bool N = false;
+		bool S = false;
+		bool E = false;
+		bool W = false;
+		if ((x + 1) % sizeX) {
+			out = grid->getObjectAt(repast::Point<int>(x + 1, y));
 			neighbors.push_back(out);
+			E = true;
 		}
-		if (W && S) {
-			out = grid->getObjectAt(repast::Point<int>(x - 1, y + 1));
+
+		if (x) {
+			out = grid->getObjectAt(repast::Point<int>(x - 1, y));
 			neighbors.push_back(out);
+			W = true;
 		}
-		if (E && N) {
-			out = grid->getObjectAt(repast::Point<int>(x + 1, y - 1));
+
+		if ((y + 1) % sizeY) {
+			out = grid->getObjectAt(repast::Point<int>(x, y + 1));
 			neighbors.push_back(out);
+			S = true;
 		}
-		if (W && N) {
-			out = grid->getObjectAt(repast::Point<int>(x - 1, y - 1));
+
+		if (y) {
+			out = grid->getObjectAt(repast::Point<int>(x, y - 1));
+			neighbors.push_back(out);
+			N = true;
+		}
+
+		if (neighborhoodType == MOORE) {
+			if (E && S) {
+				out = grid->getObjectAt(repast::Point<int>(x + 1, y + 1));
+				neighbors.push_back(out);
+			}
+			if (W && S) {
+				out = grid->getObjectAt(repast::Point<int>(x - 1, y + 1));
+				neighbors.push_back(out);
+			}
+			if (E && N) {
+				out = grid->getObjectAt(repast::Point<int>(x + 1, y - 1));
+				neighbors.push_back(out);
+			}
+			if (W && N) {
+				out = grid->getObjectAt(repast::Point<int>(x - 1, y - 1));
+				neighbors.push_back(out);
+			}
+		}
+	} else if (topologyType == TORUS) {
+
+		out = grid->getObjectAt(repast::Point<int>((x + 1) % sizeX, y));
+		neighbors.push_back(out);
+		out = grid->getObjectAt(
+				repast::Point<int>(((x - 1) + sizeX) % sizeX, y));
+		neighbors.push_back(out);
+		out = grid->getObjectAt(repast::Point<int>(x, (y + 1) % sizeY));
+		neighbors.push_back(out);
+		out = grid->getObjectAt(
+				repast::Point<int>(x, ((y - 1) + sizeY) % sizeY));
+		neighbors.push_back(out);
+		if (neighborhoodType == MOORE) {
+			out = grid->getObjectAt(
+					repast::Point<int>((x + 1) % sizeX, (y + 1) % sizeY));
+			neighbors.push_back(out);
+			out = grid->getObjectAt(
+					repast::Point<int>(((x - 1) + sizeX) % sizeX,
+							(y + 1) % sizeY));
+			neighbors.push_back(out);
+			out = grid->getObjectAt(
+					repast::Point<int>((x + 1) % sizeX,
+							((y - 1) + sizeY) % sizeY));
+			neighbors.push_back(out);
+			out = grid->getObjectAt(
+					repast::Point<int>(((x - 1) + sizeX) % sizeX,
+							((y - 1) + sizeY) % sizeY));
 			neighbors.push_back(out);
 		}
 	}

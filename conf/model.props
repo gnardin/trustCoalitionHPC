@@ -36,9 +36,12 @@ model.trust-threshold = 0.25
 model.strategy-type = 3
 # 0 = von Neumann
 # 1 = Moore
-model.neighborhood = 0
+model.neighborhood = 1
+# 0 = grid
+# 1 = torus
+model.topology = 1
 
 # output info #
-output.file=/data/workspace/hpc/trustCoalitionHPC/output/data.csv
+output.file=../output/data.csv
 output.separator=;
 output.flush=50

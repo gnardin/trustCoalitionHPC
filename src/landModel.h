@@ -45,6 +45,7 @@ const std::string MODEL_DELTA_TRUST = "model.delta-trust";
 const std::string MODEL_TRUST_THRESHOLD = "model.trust-threshold";
 const std::string MODEL_STRATEGY_TYPE = "model.strategy-type";
 const std::string MODEL_NEIGHBORHOOD = "model.neighborhood";
+const std::string MODEL_TOPOLOGY = "model.topology";
 
 // Output attributes
 const std::string OUTPUT_FILE = "output.file";
@@ -68,6 +69,10 @@ const std::string FIELD_INDEPENDENTPAYOFF = "independentPayoff";
 // Neighborhood
 const int VON_NEUMANN = 0;
 const int MOORE = 1;
+
+// TOPOLOGY
+const int GRID = 0;
+const int TORUS = 1;
 
 // Agent Type
 const int AGENT_TYPE = 0;
@@ -104,6 +109,7 @@ private:
 	double trustThreshold;
 	int strategyType;
 	int neighborhoodType;
+	int topologyType;
 
 	// Output information
 	int numCoalitions;
@@ -130,8 +136,7 @@ private:
 	repast::NumberGenerator* genStrategy;
 	repast::NumberGenerator* genConsiderTrust;
 
-	std::vector<LandAgent*> neighborhood(LandAgent* _agent,
-			int _neighborhoodType);
+	std::vector<LandAgent*> neighborhood(LandAgent* _agent);
 
 public:
 	LandModel(const std::string& propsFile, int argc, char* argv[],
