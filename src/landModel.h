@@ -10,15 +10,12 @@
 #include <repast_hpc/RepastProcess.h>
 #include <repast_hpc/Schedule.h>
 #include <repast_hpc/SharedContext.h>
-#include <repast_hpc/SharedNetwork.h>
 #include <repast_hpc/SharedSpace.h>
 #include <repast_hpc/SVDataSetBuilder.h>
 #include <repast_hpc/Utilities.h>
 
-#include "landAgent.h"
 #include "dataSources.h"
-
-namespace mpi = boost::mpi;
+#include "landAgent.h"
 
 // Grid definition
 const std::string GRID_MIN_X = "grid.min.x";
@@ -84,7 +81,7 @@ class LandModel {
 private:
 	friend class ProviderReceiver;
 
-	mpi::communicator* world;
+	boost::mpi::communicator* world;
 	int rank;
 
 	// Grid size
@@ -139,7 +136,7 @@ private:
 
 public:
 	LandModel(const std::string& propsFile, int argc, char* argv[],
-			mpi::communicator* world);
+			boost::mpi::communicator* world);
 	virtual ~LandModel();
 	void initDataCollection();
 	void initSchedule();
@@ -173,14 +170,6 @@ public:
 	void provideContent(const repast::AgentRequest& _request,
 			std::vector<LandAgentPackage>& _out);
 	void updateAgent(const LandAgentPackage& _content);
-
-	/**
-	 * Network methods
-	 */
-	void provideEdgeContent(const repast::RepastEdge<LandAgent>* edge,
-			std::vector<LandAgentEdge>& edgeContent);
-	repast::RepastEdge<LandAgent>* createEdge(
-			repast::Context<LandAgent>& context, LandAgentEdge& edge);
 };
 
 #endif // __MODEL_H__

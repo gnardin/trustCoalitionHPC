@@ -1,7 +1,7 @@
 #include "landModel.h"
 
 LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
-		mpi::communicator* _world) :
+		boost::mpi::communicator* _world) :
 		props(_propsFile, _argc, _argv, _world) {
 
 	repast::initializeRandom(props, _world);
@@ -386,8 +386,7 @@ void LandModel::step() {
 		agent = local->get();
 
 		members.clear();
-		for (remote =
-				agents.begin(); remote != agents.end(); ++remote) {
+		for (remote = agents.begin(); remote != agents.end(); ++remote) {
 
 			if ((agent->getId() != (*remote)->getId())
 					&& (agent->getId() == (*remote)->getLeaderId())

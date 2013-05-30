@@ -7,8 +7,6 @@
 #include <repast_hpc/RepastProcess.h>
 #include <repast_hpc/Schedule.h>
 
-namespace mpi = boost::mpi;
-
 void usage(char* executable) {
 	std::cerr << "usage: " << executable << " <config> <properties>"
 			<< std::endl;
@@ -19,7 +17,7 @@ void usage(char* executable) {
 }
 
 void runLandModel(const std::string propsFile, int argc, char* argv[],
-		mpi::communicator* world) {
+		boost::mpi::communicator* world) {
 
 	if (world->rank() == 0) {
 		Log4CL::instance()->get_logger("root").log(INFO,
@@ -45,8 +43,8 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	mpi::environment env(argc, argv);
-	mpi::communicator world;
+	boost::mpi::environment env(argc, argv);
+	boost::mpi::communicator world;
 
 	std::string config = argv[1];
 	std::string props = argv[2];
