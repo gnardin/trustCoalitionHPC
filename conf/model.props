@@ -9,13 +9,13 @@ distribution.trustLeader = double_uniform, 0, 1
 # grid definition #
 grid.min.x = 0
 grid.min.y = 0
-grid.max.x = 109
-grid.max.y = 109
+grid.max.x = 11
+grid.max.y = 11
 grid.buffer = 1
 
 # these must multiply to total number of processes #
-proc.per.x = 11
-proc.per.y = 11
+proc.per.x = 2
+proc.per.y = 2
 
 # payoff matrix #
 payoff.temptation = 5
@@ -44,4 +44,4 @@ model.topology = 1
 # output info #
 output.file=../output/data.csv
 output.separator=;
-output.flush=50
+output.flush=1

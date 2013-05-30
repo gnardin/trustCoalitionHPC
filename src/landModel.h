@@ -128,7 +128,6 @@ private:
 	// General
 	repast::SharedContext<LandAgent> agents;
 	repast::SharedGrids<LandAgent>::SharedWrappedGrid* grid;
-	repast::SharedNetwork<LandAgent, repast::RepastEdge<LandAgent> >* net;
 	repast::Properties props;
 	repast::DataSet* dataset;
 

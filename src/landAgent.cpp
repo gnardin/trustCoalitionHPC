@@ -1,17 +1,11 @@
 #include "landAgent.h"
 
-LandAgent::LandAgent(repast::AgentId _id, int _payoffT, int _payoffR,
-		int _payoffP, int _payoffS, int _strategy, bool _considerTrust,
+LandAgent::LandAgent(repast::AgentId _id, int _strategy, bool _considerTrust,
 		double _deltaTrust, double _trustThreshold) {
 	id = _id;
 	x = 0;
 	y = 0;
 	numNeighbors = 0;
-
-	payoffT = _payoffT;
-	payoffR = _payoffR;
-	payoffP = _payoffP;
-	payoffS = _payoffS;
 
 	strategy = _strategy;
 
@@ -230,7 +224,8 @@ void LandAgent::decideAction() {
 	}
 }
 
-void LandAgent::calculatePayoff() {
+void LandAgent::calculatePayoff(int _payoffT, int _payoffR, int _payoffP,
+		int _payoffS) {
 	int numCooperate = 0;
 	int numDefect = 0;
 	int numMember = 0;
@@ -251,8 +246,8 @@ void LandAgent::calculatePayoff() {
 				}
 			}
 		}
-		payoff = (numMember * payoffR) + (numCooperate * payoffT)
-				+ (numDefect * payoffP);
+		payoff = (numMember * _payoffR) + (numCooperate * _payoffT)
+				+ (numDefect * _payoffP);
 	} else if (isIndependent) {
 		// Independent and Cooperated
 		if (action == COOPERATE) {
@@ -264,7 +259,7 @@ void LandAgent::calculatePayoff() {
 					numDefect++;
 				}
 			}
-			payoff = (numCooperate * payoffR) + (numDefect * payoffS);
+			payoff = (numCooperate * _payoffR) + (numDefect * _payoffS);
 		}
 		// Independent and Defected
 		else if (action == DEFECT) {
@@ -276,7 +271,7 @@ void LandAgent::calculatePayoff() {
 					numDefect++;
 				}
 			}
-			payoff = (numCooperate * payoffT) + (numDefect * payoffP);
+			payoff = (numCooperate * _payoffT) + (numDefect * _payoffP);
 		}
 	}
 
@@ -356,16 +351,11 @@ void LandAgent::decideCoalition() {
 	}
 }
 
-void LandAgent::updateCoalitionStatus(std::vector<LandAgent*> _successors) {
+void LandAgent::updateCoalitionStatus(
+		std::vector<LandAgent*> _coalitionMembers) {
 	coalitionMembers.clear();
 
-	for (std::vector<LandAgent*>::iterator it = _successors.begin();
-			it != _successors.end(); ++it) {
-
-		if ((id == (*it)->getLeaderId()) && ((*it)->getIsMember())) {
-			coalitionMembers.push_back(*it);
-		}
-	}
+	coalitionMembers.assign(_coalitionMembers.begin(), _coalitionMembers.end());
 
 	if ((coalitionMembers.size() == 0) && (isLeader)) {
 		isIndependent = true;

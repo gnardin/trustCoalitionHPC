@@ -28,12 +28,6 @@ private:
 	std::vector<LandAgent*> neighbors;
 	int numNeighbors;
 
-	// Payoffs
-	int payoffT;
-	int payoffR;
-	int payoffP;
-	int payoffS;
-
 	// Strategy
 	int strategy;
 
@@ -64,8 +58,7 @@ private:
 	repast::NumberGenerator* genTrustLeader;
 
 public:
-	LandAgent(repast::AgentId _id, int _payoffT, int _payoffR, int _payoffP,
-			int _payoffS, int _strategy, bool _considerTrust,
+	LandAgent(repast::AgentId _id, int _strategy, bool _considerTrust,
 			double _deltaTrust, double _trustThreshold);
 
 	LandAgent(repast::AgentId _id, int _x, int _y, bool _isIndependent,
@@ -146,7 +139,8 @@ public:
 	/**
 	 * Agent calculates its payoff based on its own action and its neighbors' actions
 	 */
-	void calculatePayoff();
+	void calculatePayoff(int _payoffT, int _payoffR, int _payoffP,
+			int _payoffS);
 
 	/**
 	 * Leader agents update its coalition payoff
@@ -163,7 +157,7 @@ public:
 	 */
 	void decideCoalition();
 
-	void updateCoalitionStatus(std::vector<LandAgent*> _successors);
+	void updateCoalitionStatus(std::vector<LandAgent*> _coalitionMembers);
 };
 
 struct LandAgentPackage {

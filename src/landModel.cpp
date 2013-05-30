@@ -54,9 +54,9 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 	agents.addProjection(grid);
 
 	// Create Network
-	net = new repast::SharedNetwork<LandAgent, repast::RepastEdge<LandAgent> >(
-			"network", true);
-	agents.addProjection(net);
+	//net = new repast::SharedNetwork<LandAgent, repast::RepastEdge<LandAgent> >(
+	//		"network", true);
+	//agents.addProjection(net);
 
 	// Grid size managed by each process
 	dimX = sizeX / procX;
@@ -84,8 +84,7 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 			cTrust = false;
 		}
 
-		agent = new LandAgent(id, payoffT, payoffR, payoffP, payoffS, strategy,
-				cTrust, deltaTrust, trustThreshold);
+		agent = new LandAgent(id, strategy, cTrust, deltaTrust, trustThreshold);
 		agents.addAgent(agent);
 
 		// Move the agent to the position in the grid
@@ -120,26 +119,7 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 	repast::requestAgents<LandAgent, LandAgentPackage>(agents, request, *this,
 			*this);
 
-	// Build the network
-	LandAgent* source;
-	LandAgent* target;
-	for (repast::SharedContext<LandAgent>::const_local_iterator local =
-			agents.localBegin(); local != agents.localEnd(); local++) {
-
-		source = local->get();
-		for (repast::SharedContext<LandAgent>::const_iterator it =
-				agents.begin(); it != agents.end(); ++it) {
-
-			target = it->get();
-			if (source->getId() != target->getId()) {
-				net->addEdge(source, target);
-			}
-		}
-	}
-
-	repast::createComplementaryEdges<LandAgent, repast::RepastEdge<LandAgent>,
-			LandAgentPackage, LandAgentEdge, LandModel, LandModel>(net, agents,
-			*this, *this);
+	repast::syncAgents<LandAgentPackage>(*this, *this);
 }
 
 LandModel::~LandModel() {
@@ -326,13 +306,14 @@ std::vector<LandAgent*> LandModel::neighborhood(LandAgent* _agent) {
 }
 
 void LandModel::step() {
-	repast::SharedContext<LandAgent>::const_local_iterator it;
+	repast::SharedContext<LandAgent>::const_local_iterator local;
+	repast::SharedContext<LandAgent>::const_iterator remote;
 	LandAgent* agent;
 	LandAgent* leader;
 
 	// Decide an action
-	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
-		(*it)->decideAction();
+	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+		(*local)->decideAction();
 	}
 
 	// Buffer synchronization
@@ -340,8 +321,8 @@ void LandModel::step() {
 	world->barrier();
 
 	// Calculate Payoff
-	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
-		(*it)->calculatePayoff();
+	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+		(*local)->calculatePayoff(payoffT, payoffR, payoffP, payoffS);
 	}
 
 	// Synchronization
@@ -351,8 +332,8 @@ void LandModel::step() {
 	// Leaders collect their members' Payoff
 	std::vector<LandAgent*> members;
 	std::vector<LandAgent*>::iterator member;
-	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
-		leader = it->get();
+	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+		leader = local->get();
 		if (leader->getIsLeader()) {
 			leader->getCoalitionMembers(members);
 			for (member = members.begin(); member != members.end(); ++member) {
@@ -364,8 +345,8 @@ void LandModel::step() {
 		}
 	}
 	// Leaders calculate theirs and their members payoff
-	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
-		agent = it->get();
+	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+		agent = local->get();
 		if (agent->getIsLeader()) {
 			agent->calculateCoalitionPayoff(tax);
 		}
@@ -376,8 +357,8 @@ void LandModel::step() {
 	world->barrier();
 
 	// Members collect their payoff
-	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
-		agent = it->get();
+	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+		agent = local->get();
 		if (agent->getIsMember()) {
 			leader = agents.getAgent(agent->getLeaderId());
 			agent->setPayoff(leader->getCoalitionPayoff());
@@ -389,8 +370,8 @@ void LandModel::step() {
 	world->barrier();
 
 	// Independents and Members decide about the coalition
-	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
-		agent = it->get();
+	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+		agent = local->get();
 		if ((agent->getIsMember()) || (agent->getIsIndependent())) {
 			agent->decideCoalition();
 		}
@@ -401,14 +382,21 @@ void LandModel::step() {
 	world->barrier();
 
 	// Update coalition status
-	std::vector<LandAgent*> nodes;
-	for (it = agents.localBegin(); it != agents.localEnd(); ++it) {
-		agent = it->get();
+	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+		agent = local->get();
 
-		nodes.clear();
-		net->successors(agent, nodes);
+		members.clear();
+		for (remote =
+				agents.begin(); remote != agents.end(); ++remote) {
 
-		agent->updateCoalitionStatus(nodes);
+			if ((agent->getId() != (*remote)->getId())
+					&& (agent->getId() == (*remote)->getLeaderId())
+					&& ((*remote)->getIsMember())) {
+				members.push_back(remote->get());
+			}
+		}
+
+		agent->updateCoalitionStatus(members);
 	}
 }
 
@@ -584,40 +572,4 @@ void LandModel::updateAgent(const LandAgentPackage& content) {
 		copy->setPayoff(content.payoff);
 		copy->setCoalitionPayoff(content.coalitionPayoff);
 	}
-}
-
-/**
- * Network methods
- */
-void LandModel::provideEdgeContent(const repast::RepastEdge<LandAgent>* edge,
-		std::vector<LandAgentEdge>& edgeContent) {
-	LandAgent* source = edge->source();
-	LandAgent* target = edge->target();
-	LandAgentPackage sourceContent = { source->getId().id(),
-			source->getId().startingRank(), source->getId().agentType(),
-			source->getX(), source->getY(), source->getIsIndependent(),
-			source->getIsMember(), source->getIsLeader(),
-			source->getLeaderId().id(), source->getLeaderId().startingRank(),
-			source->getLeaderId().agentType(), source->getAction(),
-			source->getPayoff(), source->getCoalitionPayoff() };
-
-	LandAgentPackage targetContent = { target->getId().id(),
-			target->getId().startingRank(), target->getId().agentType(),
-			target->getX(), target->getY(), target->getIsIndependent(),
-			target->getIsMember(), target->getIsLeader(),
-			target->getLeaderId().id(), target->getLeaderId().startingRank(),
-			target->getLeaderId().agentType(), target->getAction(),
-			target->getPayoff(), target->getCoalitionPayoff() };
-
-	LandAgentEdge content = { sourceContent, targetContent };
-	edgeContent.push_back(content);
-}
-
-repast::RepastEdge<LandAgent>* LandModel::createEdge(
-		repast::Context<LandAgent>& context, LandAgentEdge& edge) {
-	repast::AgentId sourceId = edge.sourceContent.getId();
-	repast::AgentId targetId = edge.targetContent.getId();
-
-	return new repast::RepastEdge<LandAgent>(context.getAgent(sourceId),
-			context.getAgent(targetId));
 }
