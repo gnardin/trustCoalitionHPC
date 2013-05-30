@@ -335,8 +335,8 @@ void LandModel::step() {
 		(*it)->decideAction();
 	}
 
-	// Update buffer agents' action
-	synchAgents();
+	// Buffer synchronization
+	grid->synchBuffer<LandAgentPackage>(agents, *this, *this);
 	world->barrier();
 
 	// Calculate Payoff
@@ -344,8 +344,8 @@ void LandModel::step() {
 		(*it)->calculatePayoff();
 	}
 
-	// Update buffer agents' payoff
-	synchAgents();
+	// Synchronization
+	repast::syncAgents<LandAgentPackage>(*this, *this);
 	world->barrier();
 
 	// Leaders collect their members' Payoff
@@ -371,8 +371,8 @@ void LandModel::step() {
 		}
 	}
 
-	// Update buffer agents' payoff
-	synchAgents();
+	// Synchronization
+	repast::syncAgents<LandAgentPackage>(*this, *this);
 	world->barrier();
 
 	// Members collect their payoff
@@ -384,8 +384,8 @@ void LandModel::step() {
 		}
 	}
 
-	// Update buffer agents' payoff
-	synchAgents();
+	// Synchronization
+	repast::syncAgents<LandAgentPackage>(*this, *this);
 	world->barrier();
 
 	// Independents and Members decide about the coalition
@@ -396,8 +396,8 @@ void LandModel::step() {
 		}
 	}
 
-	// Update buffer agents' payoff
-	synchAgents();
+	// Synchronization
+	repast::syncAgents<LandAgentPackage>(*this, *this);
 	world->barrier();
 
 	// Update coalition status
@@ -410,9 +410,6 @@ void LandModel::step() {
 
 		agent->updateCoalitionStatus(nodes);
 	}
-
-	// Update buffer agents' payoff
-	synchAgents();
 }
 
 void LandModel::updateOutput() {
@@ -456,11 +453,6 @@ void LandModel::updateOutput() {
 			independentPayoff += agent->getPayoff();
 		}
 	}
-}
-
-void LandModel::synchAgents() {
-	repast::syncAgents<LandAgentPackage>(*this, *this);
-	grid->synchBuffer<LandAgentPackage>(agents, *this, *this);
 }
 
 /**

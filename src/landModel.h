@@ -146,7 +146,6 @@ public:
 	void initSchedule();
 	void step();
 	void updateOutput();
-	void synchAgents();
 
 	/**
 	 * Output methods

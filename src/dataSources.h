@@ -1,9 +1,9 @@
 #ifndef DATASOURCES_H_INCLUDED
 #define DATASOURCES_H_INCLUDED
 
-#include <repast_hpc/TDataSource.h>
-
 #include "landModel.h"
+
+#include <repast_hpc/TDataSource.h>
 
 class LandModel;
 
