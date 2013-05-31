@@ -204,7 +204,7 @@ void LandAgent::beginCycle() {
 }
 
 void LandAgent::decideAction() {
-	// pTFT
+// pTFT
 	if (strategy == PTFT) {
 		if ((numDefectors / numNeighbors) > genDecisionAction->next()) {
 			action = DEFECT;
@@ -232,7 +232,7 @@ void LandAgent::calculatePayoff(int _payoffT, int _payoffR, int _payoffP,
 	int neighborAction = 0;
 	std::vector<LandAgent*>::iterator it;
 
-	// Leader or Coalition Member
+// Leader or Coalition Member
 	if ((isLeader) || (isMember)) {
 		for (it = neighbors.begin(); it != neighbors.end(); ++it) {
 			if ((*it)->getLeaderId() == leaderId) {
@@ -289,7 +289,7 @@ void LandAgent::calculateCoalitionPayoff(float tax) {
 		payoff = payoff + (coalitionPayoff * tax);
 
 		// Members receive an even portion of the coalition's payoff
-		coalitionPayoff = (coalitionPayoff - payoff)
+		coalitionPayoff = (coalitionPayoff * (1.0 - tax))
 				/ (double) coalitionMembers.size();
 	} else {
 		coalitionPayoff = 0;

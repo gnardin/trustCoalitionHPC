@@ -79,7 +79,7 @@ public:
 	void setXY(int _x, int _y);
 
 	const std::vector<LandAgent*> getNeighbors() const;
-	void setNeighbors(std::vector<LandAgent*> _neighbours);
+	void setNeighbors(std::vector<LandAgent*> _neighbors);
 
 	int getStrategy();
 	void setStrategy(int _strategy);

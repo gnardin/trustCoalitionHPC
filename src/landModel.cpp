@@ -53,11 +53,6 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 			gridBuffer, world);
 	agents.addProjection(grid);
 
-	// Create Network
-	//net = new repast::SharedNetwork<LandAgent, repast::RepastEdge<LandAgent> >(
-	//		"network", true);
-	//agents.addProjection(net);
-
 	// Grid size managed by each process
 	dimX = sizeX / procX;
 	dimY = sizeY / procY;
@@ -102,6 +97,7 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 	for (int i = 0; i < (dimX * dimY); i++) {
 		agent = grid->getObjectAt(
 				repast::Point<int>(originX + (i / dimX), originY + (i % dimY)));
+
 		agent->setNeighbors(neighborhood(agent));
 	}
 
@@ -219,7 +215,7 @@ void LandModel::initSchedule() {
 
 std::vector<LandAgent*> LandModel::neighborhood(LandAgent* _agent) {
 	std::vector<LandAgent*> neighbors;
-	LandAgent* out;
+	LandAgent* agent;
 	int x = _agent->getX();
 	int y = _agent->getY();
 
@@ -230,75 +226,75 @@ std::vector<LandAgent*> LandModel::neighborhood(LandAgent* _agent) {
 		bool E = false;
 		bool W = false;
 		if ((x + 1) % sizeX) {
-			out = grid->getObjectAt(repast::Point<int>(x + 1, y));
-			neighbors.push_back(out);
+			agent = grid->getObjectAt(repast::Point<int>(x + 1, y));
+			neighbors.push_back(agent);
 			E = true;
 		}
 
 		if (x) {
-			out = grid->getObjectAt(repast::Point<int>(x - 1, y));
-			neighbors.push_back(out);
+			agent = grid->getObjectAt(repast::Point<int>(x - 1, y));
+			neighbors.push_back(agent);
 			W = true;
 		}
 
 		if ((y + 1) % sizeY) {
-			out = grid->getObjectAt(repast::Point<int>(x, y + 1));
-			neighbors.push_back(out);
+			agent = grid->getObjectAt(repast::Point<int>(x, y + 1));
+			neighbors.push_back(agent);
 			S = true;
 		}
 
 		if (y) {
-			out = grid->getObjectAt(repast::Point<int>(x, y - 1));
-			neighbors.push_back(out);
+			agent = grid->getObjectAt(repast::Point<int>(x, y - 1));
+			neighbors.push_back(agent);
 			N = true;
 		}
 
 		if (neighborhoodType == MOORE) {
 			if (E && S) {
-				out = grid->getObjectAt(repast::Point<int>(x + 1, y + 1));
-				neighbors.push_back(out);
+				agent = grid->getObjectAt(repast::Point<int>(x + 1, y + 1));
+				neighbors.push_back(agent);
 			}
 			if (W && S) {
-				out = grid->getObjectAt(repast::Point<int>(x - 1, y + 1));
-				neighbors.push_back(out);
+				agent = grid->getObjectAt(repast::Point<int>(x - 1, y + 1));
+				neighbors.push_back(agent);
 			}
 			if (E && N) {
-				out = grid->getObjectAt(repast::Point<int>(x + 1, y - 1));
-				neighbors.push_back(out);
+				agent = grid->getObjectAt(repast::Point<int>(x + 1, y - 1));
+				neighbors.push_back(agent);
 			}
 			if (W && N) {
-				out = grid->getObjectAt(repast::Point<int>(x - 1, y - 1));
-				neighbors.push_back(out);
+				agent = grid->getObjectAt(repast::Point<int>(x - 1, y - 1));
+				neighbors.push_back(agent);
 			}
 		}
 	} else if (topologyType == TORUS) {
 
-		out = grid->getObjectAt(repast::Point<int>((x + 1) % sizeX, y));
-		neighbors.push_back(out);
-		out = grid->getObjectAt(
+		agent = grid->getObjectAt(repast::Point<int>((x + 1) % sizeX, y));
+		neighbors.push_back(agent);
+		agent = grid->getObjectAt(
 				repast::Point<int>(((x - 1) + sizeX) % sizeX, y));
-		neighbors.push_back(out);
-		out = grid->getObjectAt(repast::Point<int>(x, (y + 1) % sizeY));
-		neighbors.push_back(out);
-		out = grid->getObjectAt(
+		neighbors.push_back(agent);
+		agent = grid->getObjectAt(repast::Point<int>(x, (y + 1) % sizeY));
+		neighbors.push_back(agent);
+		agent = grid->getObjectAt(
 				repast::Point<int>(x, ((y - 1) + sizeY) % sizeY));
-		neighbors.push_back(out);
+		neighbors.push_back(agent);
 		if (neighborhoodType == MOORE) {
-			out = grid->getObjectAt(
+			agent = grid->getObjectAt(
 					repast::Point<int>((x + 1) % sizeX, (y + 1) % sizeY));
-			neighbors.push_back(out);
-			out = grid->getObjectAt(
+			neighbors.push_back(agent);
+			agent = grid->getObjectAt(
 					repast::Point<int>(((x - 1) + sizeX) % sizeX,
 							(y + 1) % sizeY));
-			neighbors.push_back(out);
-			out = grid->getObjectAt(
+			neighbors.push_back(agent);
+			agent = grid->getObjectAt(
 					repast::Point<int>((x + 1) % sizeX,
 							((y - 1) + sizeY) % sizeY));
-			neighbors.push_back(out);
-			out = grid->getObjectAt(
+			neighbors.push_back(agent);
+			agent = grid->getObjectAt(
 					repast::Point<int>(((x - 1) + sizeX) % sizeX,
 							((y - 1) + sizeY) % sizeY));
-			neighbors.push_back(out);
+			neighbors.push_back(agent);
 		}
 	}
 
@@ -344,6 +340,7 @@ void LandModel::step() {
 			}
 		}
 	}
+
 	// Leaders calculate theirs and their members payoff
 	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
 		agent = local->get();
