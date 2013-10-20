@@ -1,8 +1,8 @@
 #include "landModel.h"
 
-LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
+LandModel::LandModel(const std::string& _propsFile, int _argc, char** _argv,
 		boost::mpi::communicator* _world) :
-		props(_propsFile, _argc, _argv, _world) {
+		props(_propsFile, _argc, _argv, _world), agents(_world) {
 
 	repast::initializeRandom(props, _world);
 
@@ -48,9 +48,10 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 	int gridBuffer = repast::strToInt(props.getProperty(GRID_BUFFER));
 
 	// Create Grid
-	grid = new repast::SharedGrids<LandAgent>::SharedWrappedGrid("grid ",
-			repast::GridDimensions(repast::Point<int>(sizeX, sizeY)), procDim,
-			gridBuffer, world);
+	grid = new repast::SharedSpaces<LandAgent>::SharedWrappedDiscreteSpace(
+			"grid ",
+			repast::GridDimensions(repast::Point<double>(sizeX, sizeY)),
+			procDim, gridBuffer, world);
 	agents.addProjection(grid);
 
 	// Grid size managed by each process
@@ -112,10 +113,11 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char* _argv[],
 			}
 		}
 	}
-	repast::requestAgents<LandAgent, LandAgentPackage>(agents, request, *this,
-			*this);
+	repast::RepastProcess::instance()->requestAgents<LandAgent, LandAgentPackage>(
+			agents, request, *this, *this, *this);
 
-	repast::syncAgents<LandAgentPackage>(*this, *this);
+	repast::RepastProcess::instance()->synchronizeAgentStates<LandAgentPackage>(
+			*this, *this);
 }
 
 LandModel::~LandModel() {
@@ -302,13 +304,17 @@ std::vector<LandAgent*> LandModel::neighborhood(LandAgent* _agent) {
 }
 
 void LandModel::step() {
-	repast::SharedContext<LandAgent>::const_local_iterator local;
-	repast::SharedContext<LandAgent>::const_iterator remote;
-	LandAgent* agent;
+	std::vector<LandAgent*> localAgents;
+	std::vector<LandAgent*> remoteAgents;
+	std::vector<LandAgent*>::iterator local;
+	std::vector<LandAgent*>::iterator remote;
 	LandAgent* leader;
+	int nAgents = 0;
 
 	// Decide an action
-	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+	agents.selectAgents(repast::SharedContext<LandAgent>::LOCAL, nAgents,
+			localAgents);
+	for (local = localAgents.begin(); local != localAgents.end(); local++) {
 		(*local)->decideAction();
 	}
 
@@ -317,20 +323,25 @@ void LandModel::step() {
 	world->barrier();
 
 	// Calculate Payoff
-	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
+	agents.selectAgents(repast::SharedContext<LandAgent>::LOCAL, nAgents,
+			localAgents);
+	for (local = localAgents.begin(); local != localAgents.end(); local++) {
 		(*local)->calculatePayoff(payoffT, payoffR, payoffP, payoffS);
 	}
 
 	// Synchronization
-	repast::syncAgents<LandAgentPackage>(*this, *this);
+	repast::RepastProcess::instance()->synchronizeAgentStates<LandAgentPackage>(
+			*this, *this, "REQUEST_AGENTS_ALL");
 	world->barrier();
 
 	// Leaders collect their members' Payoff
 	std::vector<LandAgent*> members;
 	std::vector<LandAgent*>::iterator member;
-	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
-		leader = local->get();
-		if (leader->getIsLeader()) {
+	agents.selectAgents(repast::SharedContext<LandAgent>::LOCAL, nAgents,
+			localAgents);
+	for (local = localAgents.begin(); local != localAgents.end(); local++) {
+		if ((*local)->getIsLeader()) {
+			leader = *local;
 			leader->getCoalitionMembers(members);
 			for (member = members.begin(); member != members.end(); ++member) {
 				if ((leader->getId() == (*member)->getLeaderId())
@@ -342,63 +353,74 @@ void LandModel::step() {
 	}
 
 	// Leaders calculate theirs and their members payoff
-	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
-		agent = local->get();
-		if (agent->getIsLeader()) {
-			agent->calculateCoalitionPayoff(tax);
+	agents.selectAgents(repast::SharedContext<LandAgent>::LOCAL, nAgents,
+			localAgents);
+	for (local = localAgents.begin(); local != localAgents.end(); local++) {
+		if ((*local)->getIsLeader()) {
+			(*local)->calculateCoalitionPayoff(tax);
 		}
 	}
 
 	// Synchronization
-	repast::syncAgents<LandAgentPackage>(*this, *this);
+	repast::RepastProcess::instance()->synchronizeAgentStates<LandAgentPackage>(
+			*this, *this, "REQUEST_AGENTS_ALL");
 	world->barrier();
 
 	// Members collect their payoff
-	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
-		agent = local->get();
-		if (agent->getIsMember()) {
-			leader = agents.getAgent(agent->getLeaderId());
-			agent->setPayoff(leader->getCoalitionPayoff());
+	agents.selectAgents(repast::SharedContext<LandAgent>::LOCAL, nAgents,
+			localAgents);
+	for (local = localAgents.begin(); local != localAgents.end(); local++) {
+		if ((*local)->getIsMember()) {
+			leader = agents.getAgent((*local)->getLeaderId());
+			(*local)->setPayoff(leader->getCoalitionPayoff());
 		}
 	}
 
 	// Synchronization
-	repast::syncAgents<LandAgentPackage>(*this, *this);
+	repast::RepastProcess::instance()->synchronizeAgentStates<LandAgentPackage>(
+			*this, *this, "REQUEST_AGENTS_ALL");
 	world->barrier();
 
 	// Independents and Members decide about the coalition
-	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
-		agent = local->get();
-		if ((agent->getIsMember()) || (agent->getIsIndependent())) {
-			agent->decideCoalition();
+	agents.selectAgents(repast::SharedContext<LandAgent>::LOCAL, nAgents,
+			localAgents);
+	for (local = localAgents.begin(); local != localAgents.end(); local++) {
+		if (((*local)->getIsMember()) || ((*local)->getIsIndependent())) {
+			(*local)->decideCoalition();
 		}
 	}
 
 	// Synchronization
-	repast::syncAgents<LandAgentPackage>(*this, *this);
+	repast::RepastProcess::instance()->synchronizeAgentStates<LandAgentPackage>(
+			*this, *this, "REQUEST_AGENTS_ALL");
 	world->barrier();
 
 	// Update coalition status
-	for (local = agents.localBegin(); local != agents.localEnd(); ++local) {
-		agent = local->get();
+	agents.selectAgents(repast::SharedContext<LandAgent>::LOCAL, nAgents,
+			localAgents);
+	for (local = localAgents.begin(); local != localAgents.end(); local++) {
 
 		members.clear();
-		for (remote = agents.begin(); remote != agents.end(); ++remote) {
+		agents.selectAgents(repast::SharedContext<LandAgent>::NON_LOCAL,
+				nAgents, remoteAgents);
+		for (remote = remoteAgents.begin(); remote != remoteAgents.end();
+				remote++) {
 
-			if ((agent->getId() != (*remote)->getId())
-					&& (agent->getId() == (*remote)->getLeaderId())
+			if (((*local)->getId() != (*remote)->getId())
+					&& ((*local)->getId() == (*remote)->getLeaderId())
 					&& ((*remote)->getIsMember())) {
-				members.push_back(remote->get());
+				members.push_back(*remote);
 			}
 		}
 
-		agent->updateCoalitionStatus(members);
+		(*local)->updateCoalitionStatus(members);
 	}
 }
 
 void LandModel::updateOutput() {
-	repast::SharedContext<LandAgent>::const_local_iterator it;
-	LandAgent* agent;
+	std::vector<LandAgent*> localAgents;
+	std::vector<LandAgent*>::iterator local;
+	int nAgents = 0;
 
 	numCoalitions = 0;
 	createdCoalitions = 0;
@@ -412,20 +434,21 @@ void LandModel::updateOutput() {
 	numIndependentRandom = 0;
 	coalitionPayoff = 0;
 	independentPayoff = 0;
-	for (it = agents.localBegin(); it != agents.localEnd(); it++) {
-		agent = it->get();
 
-		if (agent->getIsLeader()) {
+	agents.selectAgents(repast::SharedContext<LandAgent>::LOCAL, nAgents,
+			localAgents);
+	for (local = localAgents.begin(); local != localAgents.end(); local++) {
+		if ((*local)->getIsLeader()) {
 			numCoalitions++;
 			numAgentsCoalitions++;
-			coalitionPayoff += agent->getPayoff();
-		} else if (agent->getIsMember()) {
+			coalitionPayoff += (*local)->getPayoff();
+		} else if ((*local)->getIsMember()) {
 			numAgentsCoalitions++;
-			coalitionPayoff += agent->getPayoff();
-		} else if (agent->getIsIndependent()) {
+			coalitionPayoff += (*local)->getPayoff();
+		} else if ((*local)->getIsIndependent()) {
 			numAgentsIndependent++;
 
-			int strategy = agent->getStrategy();
+			int strategy = (*local)->getStrategy();
 			if (strategy == PTFT) {
 				numIndependentpTFT++;
 			} else if (strategy == TFT) {
@@ -434,7 +457,7 @@ void LandModel::updateOutput() {
 				numIndependentRandom++;
 			}
 
-			independentPayoff += agent->getPayoff();
+			independentPayoff += (*local)->getPayoff();
 		}
 	}
 }

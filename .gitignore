@@ -15,6 +15,7 @@
 /Debug
 /Release
 /experiments
+/.settings
 .l*
 *.log
 *.csv

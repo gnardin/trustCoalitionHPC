@@ -3,6 +3,7 @@
 
 #include <repast_hpc/AgentId.h>
 #include <repast_hpc/AgentRequest.h>
+//#include <repast_hpc/GridDimensions.h>
 #include <repast_hpc/initialize_random.h>
 #include <repast_hpc/Point.h>
 #include <repast_hpc/Properties.h>
@@ -10,7 +11,8 @@
 #include <repast_hpc/RepastProcess.h>
 #include <repast_hpc/Schedule.h>
 #include <repast_hpc/SharedContext.h>
-#include <repast_hpc/SharedSpace.h>
+#include <repast_hpc/SharedDiscreteSpace.h>
+#include <repast_hpc/SharedSpaces.h>
 #include <repast_hpc/SVDataSetBuilder.h>
 #include <repast_hpc/Utilities.h>
 
@@ -124,7 +126,7 @@ private:
 
 	// General
 	repast::SharedContext<LandAgent> agents;
-	repast::SharedGrids<LandAgent>::SharedWrappedGrid* grid;
+	repast::SharedSpaces<LandAgent>::SharedWrappedDiscreteSpace* grid;
 	repast::Properties props;
 	repast::DataSet* dataset;
 
