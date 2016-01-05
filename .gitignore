@@ -12,6 +12,9 @@
 *.la
 *.a
 
+/bin
+/obj
+/experiments
 /Debug
 /Release
 /experiments

@@ -91,8 +91,8 @@ LandModel::LandModel(const std::string& _propsFile, int _argc, char** _argv,
 
 	world->barrier();
 
-	grid->initSynchBuffer(agents);
-	grid->synchBuffer<LandAgentPackage>(agents, *this, *this);
+	rp->synchronizeProjectionInfo<LandAgent, LandAgentPackage>(agents, *this,
+			*this, *this);
 
 	// Set agents neighbors
 	for (int i = 0; i < (dimX * dimY); i++) {
@@ -133,9 +133,10 @@ void LandModel::initDataCollection() {
 	repast::SVDataSetBuilder builder(outputFile, outputSeparator,
 			runner.schedule());
 
+	NumCoalitions* numCoalitionsDS = new NumCoalitions(this);
 	builder.addDataSource(
-			repast::createSVDataSource(FIELD_NUMCOALITIONS,
-					new NumCoalitions(this), std::plus<int>()));
+			repast::createSVDataSource(FIELD_NUMCOALITIONS, numCoalitionsDS,
+					std::plus<int>()));
 
 	builder.addDataSource(
 			repast::createSVDataSource(FIELD_CREATEDCOALITIONS,
@@ -319,7 +320,8 @@ void LandModel::step() {
 	}
 
 	// Buffer synchronization
-	grid->synchBuffer<LandAgentPackage>(agents, *this, *this);
+	repast::RepastProcess::instance()->synchronizeProjectionInfo<LandAgent,
+			LandAgentPackage>(agents, *this, *this, *this);
 	world->barrier();
 
 	// Calculate Payoff

@@ -47,7 +47,6 @@ LandAgent::LandAgent(repast::AgentId _id, int _x, int _y, bool _isIndependent,
 	action = _action;
 	payoff = _payoff;
 
-
 	coalitionPayoff = _coalitionPayoff;
 }
 

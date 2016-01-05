@@ -8,4 +8,4 @@ then
   exit 1
 fi
 
-mpirun -np $1 ../Debug/trustCoalitionHPC ../conf/config.props ../conf/model.props
+mpirun -np $1 ../bin/trustCoalitionHPC ../conf/config.props ../conf/model.props
